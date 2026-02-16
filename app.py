@@ -151,7 +151,11 @@ def create_chart_01_radar():
 
 def create_chart_02_sentiment():
     """Chart 2: Sentiment Butterfly - sorted best (top) to worst (bottom)"""
-    df = pd.read_sql_query("SELECT * FROM sentiment_themes", conn)
+    # Read directly from CSV to avoid SQLite cache ordering issues
+    try:
+        df = pd.read_csv('feedback_data.csv')
+    except FileNotFoundError:
+        df = pd.read_sql_query("SELECT * FROM sentiment_themes", conn)
 
     if df.empty:
         st.warning("No sentiment data available.")
@@ -161,8 +165,8 @@ def create_chart_02_sentiment():
     df['total'] = df['positive_mentions'] + df['negative_mentions']
     df['sentiment_ratio'] = df['positive_mentions'] / df['total'].replace(0, 1)
 
-    # Sort so BEST (most positive) at TOP, WORST (most negative) at BOTTOM
-    # matplotlib plots bottom-to-top, so we want worst first (index 0 = bottom)
+    # Sort: WORST (most negative) at index 0 → renders at BOTTOM of chart
+    # BEST (most positive) at last index → renders at TOP
     df = df.sort_values('sentiment_ratio', ascending=True).reset_index(drop=True)
 
     themes = df['theme'].tolist()
@@ -260,9 +264,8 @@ def create_chart_03_heatmap():
 
 
 def create_chart_04_keywords():
-    """Chart 4: Tag Cloud - Onboarding Issues visualized as a word/tag cloud"""
+    """Chart 4: Tag Cloud - clean 3-row grid, no overlaps, Adyen branded"""
 
-    # HARDCODED DATA: Data extracted from Adyen_Opinie_Tabela.docx
     onboarding_data = {
         "Thrown into the deep end": 48,
         "Tribal knowledge hoarding": 45,
@@ -281,96 +284,102 @@ def create_chart_04_keywords():
         "Generic / Irrelevant training": 12,
     }
 
-    phrases = list(onboarding_data.keys())
-    counts = list(onboarding_data.values())
-    min_count = min(counts)
-    max_count = max(counts)
+    min_c = min(onboarding_data.values())
+    max_c = max(onboarding_data.values())
 
-    # ── colour scale: most frequent = deep Adyen Green, least = light mint ──
-    def count_to_color(c):
-        t = (c - min_count) / (max_count - min_count)          # 0..1
-        # interpolate between soft mint (#a8e6c1) and Adyen green (#0abf53)
+    def lerp_color(c):
+        """Light mint #a8e6c1 → Adyen green #0abf53"""
+        t = (c - min_c) / (max_c - min_c)
         r = int(0xa8 + t * (0x0a - 0xa8))
         g = int(0xe6 + t * (0xbf - 0xe6))
         b = int(0xc1 + t * (0x53 - 0xc1))
         return f'#{r:02x}{g:02x}{b:02x}'
 
-    # ── font size scale: 11 pt (least) to 26 pt (most frequent) ──
-    def count_to_fontsize(c):
-        t = (c - min_count) / (max_count - min_count)
-        return 11 + t * 15
+    def lerp_size(c):
+        t = (c - min_c) / (max_c - min_c)
+        return 11 + t * 14   # 11pt → 25pt
 
-    # ── layout: spiral-like placement using a simple grid with jitter ──
-    np.random.seed(42)
-    fig, ax = plt.subplots(figsize=(14, 8), dpi=DPI)
+    # Sort largest first
+    sorted_items = sorted(onboarding_data.items(), key=lambda x: x[1], reverse=True)
+
+    # 3-row layout: row 0 (top) = 4 items, row 1 (mid) = 6, row 2 (bot) = 5
+    row_groups = [sorted_items[0:4], sorted_items[4:10], sorted_items[10:15]]
+    y_centers  = [0.78, 0.50, 0.22]   # paper coords
+
+    fig, ax = plt.subplots(figsize=(14, 6), dpi=DPI)
     ax.set_facecolor('#ffffff')
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
     ax.axis('off')
     fig.patch.set_facecolor('#ffffff')
 
-    # Grid-based placement: 5 columns × 3 rows
-    cols, rows = 5, 3
-    positions = []
-    for row in range(rows):
-        for col in range(cols):
-            x = (col + 0.5) / cols
-            y = (rows - row - 0.5) / rows
-            positions.append((x, y))
+    for group, y_c in zip(row_groups, y_centers):
+        n = len(group)
+        xs = [(j + 1) / (n + 1) for j in range(n)]
+        for (phrase, count), x in zip(group, xs):
+            ax.text(x, y_c, phrase,
+                    fontsize=lerp_size(count),
+                    color=lerp_color(count),
+                    fontweight='bold' if count >= 38 else ('semibold' if count >= 28 else 'normal'),
+                    ha='center', va='center',
+                    transform=ax.transAxes,
+                    wrap=False)
 
-    # Sort phrases by count descending so biggest tags get centre positions
-    sorted_items = sorted(zip(counts, phrases), reverse=True)
+    # Title (via fig.text so it doesn't shift axes)
+    fig.text(0.5, 0.94,
+             'Chart 4: Top Onboarding Issues — Tag Cloud',
+             ha='center', va='top',
+             fontsize=14, fontweight='600', color=ADYEN_MIDNIGHT)
 
-    # Reorder positions: spiral from centre outward
-    # Simple approach: interleave so top items go near center
-    centre_order = []
-    left, right = 0, len(positions) - 1
-    toggle = True
-    while left <= right:
-        if toggle:
-            centre_order.append(positions[left]); left += 1
-        else:
-            centre_order.append(positions[right]); right -= 1
-        toggle = not toggle
+    fig.text(0.5, 0.03,
+             'Tag size & colour intensity = mention frequency  |  Darker green = mentioned more often\n'
+             'Data: Employee feedback 2024-2026 | Dashboard by Serafima, Feb 2026',
+             ha='center', va='bottom', fontsize=7.5, color=ADYEN_SECONDARY, linespacing=1.5)
 
-    for i, (count, phrase) in enumerate(sorted_items):
-        if i >= len(centre_order):
-            break
-        x, y = centre_order[i]
-        # Add slight jitter for organic feel
-        x += np.random.uniform(-0.04, 0.04)
-        y += np.random.uniform(-0.05, 0.05)
-        x = np.clip(x, 0.05, 0.95)
-        y = np.clip(y, 0.05, 0.95)
+    plt.subplots_adjust(left=0, right=1, top=0.90, bottom=0.10)
 
-        color = count_to_color(count)
-        fontsize = count_to_fontsize(count)
-        weight = 'bold' if count >= 35 else ('semibold' if count >= 25 else 'normal')
-
-        ax.text(x, y, phrase,
-                fontsize=fontsize,
-                color=color,
-                ha='center', va='center',
-                fontweight=weight,
-                wrap=False,
-                transform=ax.transAxes)
-
-    ax.set_title('Chart 4: Top Onboarding Issues — Tag Cloud',
-                 fontsize=14, weight='600', pad=15, color=ADYEN_MIDNIGHT,
-                 transform=fig.transFigure, x=0.5, y=0.97, ha='center')
-
-    # Legend: size = frequency
-    legend_text = "Tag size & colour intensity = mention frequency  |  Darker green = mentioned more often"
-    plt.figtext(0.5, 0.02,
-                f'{legend_text}\nData: Employee feedback 2024-2026 | Dashboard by Serafima, Feb 2026',
-                ha='center', fontsize=8, color=ADYEN_SECONDARY, linespacing=1.6)
-
-    plt.tight_layout(rect=[0, 0.06, 1, 0.95])
-
-    # Save chart
     os.makedirs('adyen_charts', exist_ok=True)
     plt.savefig('adyen_charts/04_top_keywords.png', dpi=DPI, bbox_inches='tight',
                 facecolor='#ffffff', edgecolor='none')
+
+    # Also try to produce an interactive Plotly version if plotly available
+    try:
+        import plotly.graph_objects as go
+
+        annotations = []
+        for group, y_c in zip(row_groups, y_centers):
+            n = len(group)
+            xs = [(j + 1) / (n + 1) for j in range(n)]
+            for (phrase, count), x in zip(group, xs):
+                t = (count - min_c) / (max_c - min_c)
+                ri = int(0xa8 + t * (0x0a - 0xa8))
+                gi = int(0xe6 + t * (0xbf - 0xe6))
+                bi = int(0xc1 + t * (0x53 - 0xc1))
+                annotations.append(dict(
+                    x=x, y=y_c,
+                    text=f"<b>{phrase}</b>" if count >= 38 else phrase,
+                    showarrow=False,
+                    font=dict(size=int(14 + t * 22), color=f'rgb({ri},{gi},{bi})',
+                              family='Inter, Arial, sans-serif'),
+                    xanchor='center', yanchor='middle',
+                    xref='paper', yref='paper'
+                ))
+
+        pfig = go.Figure()
+        pfig.update_layout(
+            annotations=annotations,
+            xaxis=dict(visible=False, range=[0, 1]),
+            yaxis=dict(visible=False, range=[0, 1]),
+            plot_bgcolor='white', paper_bgcolor='white',
+            margin=dict(l=20, r=20, t=60, b=50), height=460,
+            title=dict(text='Chart 4: Top Onboarding Issues — Tag Cloud',
+                       font=dict(size=16, color='#00112c', family='Inter, Arial, sans-serif'),
+                       x=0.5, xanchor='center')
+        )
+        pfig.write_html('adyen_charts/04_top_keywords.html',
+                        include_plotlyjs='cdn', full_html=True)
+    except ImportError:
+        pass  # plotly optional – PNG already saved above
 
     return fig
 
@@ -389,12 +398,14 @@ st.set_page_config(
 # CRITICAL: FORCE LIGHT THEME (Fix Invisible Text)
 # ============================================
 st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+    /* ── App background ── */
     .stApp {
         background-color: #f7f7f8 !important;
     }
     h1, h2, h3, p, span, li, div, label, .stMarkdown {
-        color: #00112c !important; /* Adyen Midnight */
+        color: #00112c !important;
         font-family: 'Inter', sans-serif !important;
     }
     .stPlotlyChart, .stPyplot {
@@ -404,7 +415,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
-    /* Sidebar styling */
+    /* ── Sidebar ── */
     [data-testid="stSidebar"] {
         background-color: #ffffff !important;
         border-right: 1px solid #e6e8eb !important;
@@ -415,7 +426,37 @@ st.markdown("""
         color: #00112c !important;
     }
 
-    /* Button styling */
+    /* ── Fix: hide "keyboard_double_arrow" text in sidebar collapse button ── */
+    /* Streamlit renders Material Icon names as raw text when font fails to load.
+       We replace the broken text with a CSS arrow using ::before pseudo-element. */
+    [data-testid="stSidebarCollapseButton"] button,
+    [data-testid="collapsedControl"] button,
+    button[data-testid="baseButton-header"] {
+        font-size: 0 !important;          /* hide the raw icon text */
+        color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+        width: 2rem !important;
+        height: 2rem !important;
+        padding: 0 !important;
+        cursor: pointer !important;
+        position: relative !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button::before,
+    [data-testid="collapsedControl"] button::before,
+    button[data-testid="baseButton-header"]::before {
+        content: "‹" !important;         /* clean HTML arrow instead */
+        font-size: 1.4rem !important;
+        color: #5c687c !important;
+        font-family: 'Inter', sans-serif !important;
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        line-height: 1 !important;
+    }
+
+    /* ── Buttons ── */
     .stButton > button {
         background-color: #0abf53 !important;
         color: #ffffff !important;
@@ -429,14 +470,14 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(10, 191, 83, 0.2) !important;
     }
 
-    /* Selectbox styling */
+    /* ── Selectbox ── */
     .stSelectbox > div > div {
         background-color: #ffffff !important;
         border: 1px solid #e6e8eb !important;
         color: #00112c !important;
     }
 
-    /* Metric styling */
+    /* ── Metrics ── */
     [data-testid="stMetricValue"] {
         color: #00112c !important;
         font-size: 2rem !important;
@@ -447,20 +488,16 @@ st.markdown("""
         font-size: 0.9rem !important;
     }
 
-    /* Container styling */
+    /* ── Containers & alerts ── */
     .element-container {
         color: #00112c !important;
     }
-
-    /* Warning/Info box styling */
     .stAlert {
         background-color: #ffffff !important;
         color: #00112c !important;
         border-left: 4px solid #0abf53 !important;
     }
     </style>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 """, unsafe_allow_html=True)
 
 # ============================================
@@ -605,7 +642,7 @@ elif selected_chart == "Chart 4: Top Onboarding Issues":
         </p>
     """, unsafe_allow_html=True)
 
-    with st.spinner("Generating onboarding issues chart..."):
+    with st.spinner("Generating onboarding issues tag cloud..."):
         fig = create_chart_04_keywords()
         if fig:
             st.pyplot(fig)
