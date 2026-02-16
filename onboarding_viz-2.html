@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0a;font-family:'Helvetica Neue',Arial,sans-serif;color:#e8e8e8;font-size:13px}
+button{font-family:inherit;cursor:pointer;transition:all .15s}
+.header{background:#0d0d0d;border-bottom:1px solid #1e1e1e;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{width:32px;height:32px;background:#0abf53;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#000;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-title{font-size:13px;font-weight:700}
+.brand-sub{font-size:10px;color:#666;margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;color:#666;border:1px solid #1e1e1e;border-radius:5px;padding:5px 12px;font-size:11px;font-weight:600}
+.tab.active{background:#0abf53;color:#000;border-color:#0abf53}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);background:#0d0d0d;border-bottom:1px solid #1e1e1e}
+.stat{padding:14px 18px;border-right:1px solid #1e1e1e}.stat:last-child{border-right:none}
+.stat-val{font-size:22px;font-weight:800;letter-spacing:-1px;line-height:1}
+.stat-lbl{font-size:10px;color:#666;margin-top:4px;line-height:1.5}
+.content{padding:20px 24px}
+.stitle{font-size:17px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px}
+.ssub{color:#666;font-size:12px;margin-bottom:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g5{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+.card{background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:15px}
+.clbl{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.8px;margin-bottom:11px;font-weight:600}
+.brow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.bname{width:115px;font-size:11px;text-align:right;flex-shrink:0}
+.btrack{flex:1;height:17px;background:#1a1a1a;border-radius:3px;overflow:hidden}
+.bfill{height:100%;border-radius:3px}
+.bval{font-size:10px;color:#999;width:26px;text-align:right;flex-shrink:0}
+.ev{display:flex;align-items:flex-start;gap:9px;padding:7px 9px;background:#0a0a0a;border-radius:7px;border-left:3px solid;margin-bottom:5px}
+.ev-stat{font-size:14px;font-weight:800;min-width:42px;letter-spacing:-.5px;line-height:1.1}
+.ev-desc{font-size:11px;line-height:1.4}
+.ev-src{font-size:10px;color:#555;margin-top:1px}
+.pcard{background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:15px;border-top:3px solid;position:relative}
+.pnum{font-size:22px;font-weight:800;opacity:.25;position:absolute;top:9px;right:11px}
+.pdur{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+.ptitle{font-size:12px;font-weight:700;line-height:1.3;margin-bottom:9px;padding-right:18px}
+.ptool{display:flex;align-items:center;gap:4px;margin-bottom:3px;font-size:10px;color:#666}
+.tdot{width:4px;height:4px;border-radius:50%;flex-shrink:0}
+.mrow{display:flex;gap:9px;padding:8px 9px;background:#0a0a0a;border-radius:7px;border-left:3px solid;margin-bottom:5px}
+.mname{min-width:80px;font-size:10px;font-weight:700;line-height:1.4}
+.mdesc{font-size:10px;color:#666;line-height:1.5}
+.dmode{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.dq{display:flex;gap:4px;margin-bottom:2px;font-size:10px;color:#666;line-height:1.4}
+.bcard{background:#111;border:1px solid #1e1e1e;border-radius:10px;padding:15px;border-top:3px solid}
+.bc-co{font-size:13px;font-weight:700;margin-bottom:2px}
+.bc-re{font-size:11px;font-weight:600;margin-bottom:7px}
+.bc-le{font-size:11px;color:#666;line-height:1.55;margin-bottom:9px}
+.bc-st{display:flex;gap:6px}
+.bs{flex:1;background:#0a0a0a;border-radius:7px;padding:6px 8px;border-left:2px solid}
+.bs-val{font-size:11px;font-weight:700}
+.bs-lbl{font-size:9px;color:#555;margin-top:2px}
+.legend{display:flex;gap:12px;justify-content:center;margin-top:6px}
+.li{display:flex;align-items:center;gap:5px;font-size:10px;color:#666}
+.ldot{width:9px;height:9px;border-radius:2px}
+.tab-content{display:none}.tab-content.active{display:block}
+.pie-wrap{display:flex;align-items:center;gap:18px}
+.plrow{margin-bottom:10px}
+.plhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.plname{display:flex;align-items:center;gap:5px;font-size:10px}
+.pldot{width:7px;height:7px;border-radius:50%}
+.plval{font-size:13px;font-weight:800}
+.plbar{height:3px;background:#1e1e1e;border-radius:2px}
+.plf{height:100%;border-radius:2px}
+.footer{background:#0d0d0d;border-top:1px solid #1e1e1e;padding:10px 24px;display:flex;justify-content:space-between;font-size:10px;color:#555;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="logo">A</div>
+    <div><div class="brand-title">Engineering Onboarding Intelligence</div>
+    <div class="brand-sub">Root Cause Analysis · Adyen Tech Organization · 2025</div></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('causes',this)">Root Causes</button>
+    <button class="tab" onclick="showTab('data',this)">Key Data</button>
+    <button class="tab" onclick="showTab('benchmark',this)">Benchmarks</button>
+    <button class="tab" onclick="showTab('diagnostic',this)">Methodology</button>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-val" style="color:#ff4d4d">42%</div><div class="stat-lbl">Knowledge lives only<br>in people's heads</div></div>
+  <div class="stat"><div class="stat-val" style="color:#ffb800">29%</div><div class="stat-lbl">Workweek lost to<br>knowledge search</div></div>
+  <div class="stat"><div class="stat-val" style="color:#ffb800">8–18mo</div><div class="stat-lbl">Actual time to<br>full productivity</div></div>
+  <div class="stat"><div class="stat-val" style="color:#0abf53">82%</div><div class="stat-lbl">Retention gain from<br>great onboarding</div></div>
+  <div class="stat"><div class="stat-val" style="color:#ff4d4d">€480K</div><div class="stat-lbl">Max hiring risk per<br>senior engineer</div></div>
+</div>
+<div class="content">
+<div id="tab-causes" class="tab-content active">
+  <div class="stitle">7 Data-backed root causes</div>
+  <div class="ssub">Ranked by business impact, prevalence in scaling tech companies, and cost risk</div>
+  <div class="g2">
+    <div class="card"><div class="clbl">Impact Score by Root Cause</div><div id="ibars"></div></div>
+    <div class="card"><div class="clbl">Multi-dimensional Risk Profile</div><svg id="radar" style="width:100%;overflow:visible" height="260"></svg>
+      <div class="legend">
+        <div class="li"><div class="ldot" style="background:#ff4d4d"></div>Impact</div>
+        <div class="li"><div class="ldot" style="background:#ffb800"></div>Prevalence</div>
+        <div class="li"><div class="ldot" style="background:#0abf53"></div>Cost Risk</div>
+      </div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:7px;margin-top:14px" id="rccards"></div>
+</div>
+<div id="tab-data" class="tab-content">
+  <div class="stitle">Supporting data &amp; statistics</div>
+  <div class="ssub">Industry research, academic studies, and FinTech-specific evidence</div>
+  <div class="g2">
+    <div class="card"><div class="clbl">Engineer Productivity Ramp Curve</div><svg id="ramp" style="width:100%;overflow:visible" height="190"></svg><div style="font-size:10px;color:#555;margin-top:7px">Source: Zippia/TrueList/Docustream — 80+ engineering organizations</div></div>
+    <div class="card"><div class="clbl">Where Organizational Knowledge Lives</div>
+      <div class="pie-wrap"><svg id="pie" width="150" height="150"></svg><div id="plgend" style="flex:1"></div></div>
+      <div style="font-size:10px;color:#555;margin-top:7px">Source: Peroune (2007) / Bloomfire via HBR (2025)</div>
+    </div>
+    <div class="card"><div class="clbl">Weekly Hours Lost to Knowledge Failure (per engineer)</div><div id="tbars"></div><div style="font-size:10px;color:#555;margin-top:7px">Total: ~21.8 hours/week = 55% of workweek · Source: Bloomfire/HBR 2025</div></div>
+    <div class="card"><div class="clbl">Critical Evidence Points</div><div id="evlist"></div></div>
+  </div>
+</div>
+<div id="tab-benchmark" class="tab-content">
+  <div class="stitle">Industry benchmarks</div>
+  <div class="ssub">Comparing time-to-productivity and satisfaction across engineering organizations</div>
+  <div class="g2">
+    <div class="card"><div class="clbl">Months to Full Productivity</div><div id="btbars"></div></div>
+    <div class="card"><div class="clbl">Onboarding Satisfaction Score (0–100)</div><div id="bsbars"></div></div>
+    <div class="bcard" style="border-top-color:#00a8e8"><div class="bc-co">Meta / Facebook</div><div class="bc-re" style="color:#00a8e8">6-week Engineering Bootcamp</div><div class="bc-le">Introduced when engineering crossed Dunbar's ~150 person threshold. New joiners ship real code in week 2. Cohort model creates cultural connective tissue.</div><div class="bc-st"><div class="bs" style="border-left-color:#00a8e830"><div class="bs-val" style="color:#00a8e8">6 weeks</div><div class="bs-lbl">Bootcamp duration</div></div><div class="bs" style="border-left-color:#00a8e830"><div class="bs-val" style="color:#00a8e8">From day 1</div><div class="bs-lbl">Daily coding</div></div><div class="bs" style="border-left-color:#00a8e830"><div class="bs-val" style="color:#00a8e8">Engineer picks</div><div class="bs-lbl">Team autonomy</div></div></div></div>
+    <div class="bcard" style="border-top-color:#0abf53"><div class="bc-co">Stripe</div><div class="bc-re" style="color:#0abf53">Stripe 101 + /dev/start</div><div class="bc-le">Admitted early onboarding was 'sink-or-swim.' No feature ships without published documentation. Trailhead tool built for internal doc findability.</div><div class="bc-st"><div class="bs" style="border-left-color:#0abf5330"><div class="bs-val" style="color:#0abf53">82 internal</div><div class="bs-lbl">Instructors</div></div><div class="bs" style="border-left-color:#0abf5330"><div class="bs-val" style="color:#0abf53">30+ sessions</div><div class="bs-lbl">Courses</div></div><div class="bs" style="border-left-color:#0abf5330"><div class="bs-val" style="color:#0abf53">Ship = publish</div><div class="bs-lbl">Doc policy</div></div></div></div>
+    <div class="bcard" style="border-top-color:#ffb800"><div class="bc-co">Google</div><div class="bc-re" style="color:#ffb800">Manager nudge + buddy system</div><div class="bc-le">Manager receives checklist 24h before new hire starts. Surveys at 30, 60, 90, 365 days. Buddy program is the single highest-ROI intervention identified.</div><div class="bc-st"><div class="bs" style="border-left-color:#ffb80030"><div class="bs-val" style="color:#ffb800">+25%</div><div class="bs-lbl">Speed gain</div></div><div class="bs" style="border-left-color:#ffb80030"><div class="bs-val" style="color:#ffb800">30/60/90/365d</div><div class="bs-lbl">Survey cadence</div></div><div class="bs" style="border-left-color:#ffb80030"><div class="bs-val" style="color:#ffb800">24h before</div><div class="bs-lbl">Nudge timing</div></div></div></div>
+    <div class="bcard" style="border-top-color:#b644ff"><div class="bc-co">Adyen Tech Academy</div><div class="bc-re" style="color:#b644ff">Self-directed 6-month journey</div><div class="bc-le">Founded 2021, reports to CTO. 115+ nationalities, 28+ offices. 2024 Annual Report: 'spent 2024 effectively onboarding new talent.' Gap: context layer missing.</div><div class="bc-st"><div class="bs" style="border-left-color:#b644ff30"><div class="bs-val" style="color:#b644ff">~6 months</div><div class="bs-lbl">Timeline</div></div><div class="bs" style="border-left-color:#b644ff30"><div class="bs-val" style="color:#b644ff">Self-directed</div><div class="bs-lbl">Format</div></div><div class="bs" style="border-left-color:#b644ff30"><div class="bs-val" style="color:#b644ff">Context layer</div><div class="bs-lbl">Gap identified</div></div></div></div>
+  </div>
+</div>
+<div id="tab-diagnostic" class="tab-content">
+  <div class="stitle">5-Phase diagnostic framework</div>
+  <div class="ssub">Integrated methodology for finding the structural root of onboarding failure</div>
+  <div class="g5" id="pcards" style="margin-bottom:18px"></div>
+  <div class="g2">
+    <div class="card"><div class="clbl">What Each Method Uncovers</div><div id="mlist"></div></div>
+    <div class="card"><div class="clbl">Diagnostic Questions by Failure Mode</div><div id="dqlist"></div></div>
+  </div>
+</div>
+</div>
+<div class="footer">
+  <span>Sources: Bloomfire/HBR 2025 · Gallup · Brandon Hall Group · McKinsey · Deloitte 2025 · Bauer (2010) · Rob Cross ONA Research · Meta/Google/Stripe Engineering Blogs</span>
+  <span>The Adyen Context Layer — Senior LXD Case Study · 2025</span>
+</div>
+<script>
+const G='#0abf53',R='#ff4d4d',A='#ffb800',MU='#666',T='#e8e8e8',BD='#1e1e1e';
+function showTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+const rc=[
+  {l:'Tacit Knowledge',i:95,p:90,c:88},
+  {l:'Manager Quality',i:82,p:85,c:78},
+  {l:'No Architecture',i:78,p:64,c:72},
+  {l:'Domain Complexity',i:74,p:100,c:80},
+  {l:'Passive Design',i:70,p:58,c:60},
+  {l:'Slow Networks',i:65,p:72,c:55},
+  {l:'Blind Spots',i:60,p:67,c:50},
+];
+const prodD=[{l:'Wk 1–2',v:10},{l:'Mo 1',v:25},{l:'Mo 2',v:50},{l:'Mo 3',v:75},{l:'Mo 6',v:90},{l:'Mo 12',v:100}];
+const kd=[{n:"Only in minds",v:42,c:R},{n:'Partially documented',v:35,c:A},{n:'Documented & findable',v:23,c:G}];
+const td=[{l:'Searching for info',h:8.2},{l:'Recreating knowledge',h:5.6},{l:'Interrupted for Qs',h:4.8},{l:'Waiting for answers',h:3.2}];
+const ev=[
+  {s:'70%',d:'of team engagement variance determined by manager quality',src:'Gallup',t:'h'},
+  {s:'60%',d:'of companies set no milestones for new recruits',src:'HBR',t:'h'},
+  {s:'52%',d:'of employees feel undertrained — 80% plan to leave',src:'Paychex',t:'h'},
+  {s:'36%',d:'of companies have no structured onboarding at all',src:'Kronos/HCI',t:'m'},
+  {s:'3–5yr',d:'to match senior engineer network without intervention',src:'Rob Cross ONA',t:'m'},
+  {s:'82%',d:'retention improvement from strong onboarding programs',src:'Brandon Hall Group',t:'p'},
+  {s:'25%',d:'faster productivity with peer buddy system',src:'Google Noogler',t:'p'},
+];
+const bd=[
+  {co:'No onboarding',t:18,s:32,c:R},{co:'Industry avg.',t:12,s:48,c:A},
+  {co:'Adyen target',t:6,s:68,c:'#00a8e8'},{co:'Google',t:4,s:85,c:G},
+  {co:'Meta',t:3,s:88,c:G},{co:'Stripe',t:5,s:82,c:G},
+];
+const ph=[
+  {n:'01',ti:"Bauer's Four C's",du:'Weeks 1–2',to:['Newcomer Socialization Q.','30/60/90 day surveys','Google 3-element model'],c:G},
+  {n:'02',ti:'Iceberg Model',du:'Weeks 2–3',to:['Events → Patterns','Systemic structures','Mental models mapping'],c:'#00a8e8'},
+  {n:'03',ti:'JTBD Interviews',du:'Weeks 2–3',to:['New hire interviews','Manager needs mapping','Senior IC workarounds'],c:A},
+  {n:'04',ti:'Org. Network Analysis',du:'Weeks 3–4',to:['Slack metadata analysis','Bus factor mapping','Bridging ties audit'],c:'#ff6b35'},
+  {n:'05',ti:'5 Whys + Fishbone',du:'Week 4',to:['Cross-functional synthesis','6-category fishbone','Causal loop diagrams'],c:'#b644ff'},
+];
+const me=[
+  {m:"Bauer 4C's + NSQ",f:'Which onboarding dimensions are broken — compliance, role clarity, culture, connection',c:G},
+  {m:'Iceberg Model',f:'Whether problems are surface events or structural patterns reinforced by mental models',c:'#00a8e8'},
+  {m:'JTBD Interviews',f:'The real jobs stakeholders need done vs. what the system actually delivers',c:A},
+  {m:'ONA (Network)',f:'Knowledge bottlenecks, isolated teams, slow social integration, bus factor',c:'#ff6b35'},
+  {m:'5 Whys + Fishbone',f:'The systemic structures (processes, incentives, tools) producing observable failures',c:'#b644ff'},
+];
+const dq=[
+  {mo:'Slow time-to-productivity',qs:['Median time-to-first-deploy by team?','% ramp-up consumed by env setup?',"Is 'starter project' practice consistent?"],c:R},
+  {mo:'Inconsistent quality',qs:['Std deviation in satisfaction across teams?','% managers trained on onboarding?','Are 30-60-90 plans standardized?'],c:A},
+  {mo:'Knowledge silos',qs:['Who appears most in new-hire DMs?','Bus factor for critical systems?','% architecture decisions with ADRs?'],c:'#00a8e8'},
+  {mo:'Passive design',qs:['Milestones at 30/60/90/180 days?','Do new hires get feedback early?','Is there a new-hire feedback loop?'],c:'#b644ff'},
+];
+function rcColor(i){return i===0?R:i<3?A:G}
+// Impact bars
+document.getElementById('ibars').innerHTML=rc.map((d,i)=>`<div class="brow"><div class="bname">${d.l}</div><div class="btrack"><div class="bfill" style="width:${d.i}%;background:${rcColor(i)}"></div></div><div class="bval">${d.i}</div></div>`).join('');
+// RC cards
+document.getElementById('rccards').innerHTML=rc.map((d,i)=>`<div style="background:#111;border:1px solid ${i===0?R:i<3?A+'55':BD};border-radius:9px;padding:10px 9px"><div style="font-size:10px;font-weight:700;color:${rcColor(i)};text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">#${i+1}</div><div style="font-size:11px;font-weight:700;line-height:1.35;margin-bottom:7px">${d.l}</div><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px"><span style="color:${MU}">Impact</span><span style="font-weight:600">${d.i}</span></div><div style="height:3px;background:#1e1e1e;border-radius:2px"><div style="width:${d.i}%;height:100%;background:${rcColor(i)};border-radius:2px"></div></div></div>`).join('');
+// Radar SVG
+(function(){
+  const el=document.getElementById('radar');
+  const W=el.parentElement.offsetWidth||340,H=260;
+  el.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const cx=W/2,cy=H/2,r=Math.min(cx,cy)-44;
+  const ang=i=>-Math.PI/2+(2*Math.PI/rc.length)*i;
+  const pt=(i,rv)=>[cx+rv*Math.cos(ang(i)),cy+rv*Math.sin(ang(i))];
+  let s='';
+  [.25,.5,.75,1].forEach(f=>{const pts=rc.map((_,i)=>pt(i,r*f));s+=`<polygon points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${BD}" stroke-width="1"/>`;});
+  rc.forEach((_,i)=>{const[x,y]=pt(i,r);s+=`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${BD}" stroke-width="1"/>`;const[lx,ly]=pt(i,r+15);s+=`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="9" fill="${MU}">${rc[i].l}</text>`;});
+  function poly(key,col,op){const pts=rc.map((d,i)=>pt(i,r*(d[key]/100)));s+=`<polygon points="${pts.map(p=>p.join(',')).join(' ')}" fill="${col}" fill-opacity="${op}" stroke="${col}" stroke-width="1.5"/>`;}
+  poly('i',R,0.15);poly('p',A,0.10);poly('c',G,0.10);
+  el.innerHTML=s;
+})();
+// Ramp SVG
+(function(){
+  const el=document.getElementById('ramp');
+  const W=el.parentElement.offsetWidth||320,H=185;
+  el.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const pl={l:30,r:10,t:8,b:22},cw=W-pl.l-pl.r,ch=H-pl.t-pl.b;
+  const x=i=>pl.l+i*(cw/(prodD.length-1));
+  const y=v=>pl.t+ch-(v/100)*ch;
+  let s='<defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="#0abf53" stop-opacity="0.3"/><stop offset="95%" stop-color="#0abf53" stop-opacity="0"/></linearGradient></defs>';
+  [0,25,50,75,100].forEach(v=>{const yy=y(v);s+=`<line x1="${pl.l}" y1="${yy}" x2="${pl.l+cw}" y2="${yy}" stroke="${BD}" stroke-width="1"/>`;s+=`<text x="${pl.l-4}" y="${yy}" text-anchor="end" dominant-baseline="middle" font-size="8" fill="${MU}">${v}%</text>`;});
+  const pts=prodD.map((_,i)=>`${x(i)},${y(prodD[i].v)}`).join(' ');
+  s+=`<polygon points="${x(0)},${y(0)} ${pts} ${x(prodD.length-1)},${y(0)}" fill="url(#rg)"/>`;
+  s+=`<polyline points="${pts}" fill="none" stroke="${G}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  prodD.forEach((d,i)=>{s+=`<circle cx="${x(i)}" cy="${y(d.v)}" r="3.5" fill="${G}"/>`;s+=`<text x="${x(i)}" y="${H-pl.b+11}" text-anchor="middle" font-size="8" fill="${MU}">${d.l}</text>`;});
+  el.innerHTML=s;
+})();
+// Pie SVG
+(function(){
+  const el=document.getElementById('pie');
+  const cx=75,cy=75,or=62,ir=36;
+  let sa=-Math.PI/2,s='';
+  kd.forEach(d=>{
+    const a=(d.v/100)*2*Math.PI,ea=sa+a;
+    const x1=cx+or*Math.cos(sa),y1=cy+or*Math.sin(sa),x2=cx+or*Math.cos(ea),y2=cy+or*Math.sin(ea);
+    const ix1=cx+ir*Math.cos(ea),iy1=cy+ir*Math.sin(ea),ix2=cx+ir*Math.cos(sa),iy2=cy+ir*Math.sin(sa);
+    const lg=a>Math.PI?1:0;
+    s+=`<path d="M${x1},${y1} A${or},${or} 0 ${lg} 1 ${x2},${y2} L${ix1},${iy1} A${ir},${ir} 0 ${lg} 0 ${ix2},${iy2} Z" fill="${d.c}" opacity="0.85"/>`;
+    sa=ea;
+  });
+  el.innerHTML=s;
+  document.getElementById('plgend').innerHTML=kd.map(d=>`<div class="plrow"><div class="plhead"><div class="plname"><div class="pldot" style="background:${d.c}"></div>${d.n}</div><div class="plval" style="color:${d.c}">${d.v}%</div></div><div class="plbar"><div class="plf" style="width:${d.v}%;background:${d.c}"></div></div></div>`).join('');
+})();
+// Time bars
+document.getElementById('tbars').innerHTML=td.map(d=>`<div class="brow"><div class="bname">${d.l}</div><div class="btrack"><div class="bfill" style="width:${d.h/10*100}%;background:${A}"></div></div><div class="bval">${d.h}h</div></div>`).join('');
+// Evidence
+document.getElementById('evlist').innerHTML=ev.map(d=>`<div class="ev" style="border-left-color:${d.t==='h'?R:d.t==='m'?A:G}"><div class="ev-stat" style="color:${d.t==='h'?R:d.t==='m'?A:G}">${d.s}</div><div><div class="ev-desc">${d.d}</div><div class="ev-src">${d.src}</div></div></div>`).join('');
+// Bench bars
+function vbars(id,items,maxV,vKey,suf){
+  const bw=36,gap=10,pad=24,H=160;
+  const tot=items.length*(bw+gap)-gap+pad*2;
+  let s=`<svg width="100%" viewBox="0 0 ${tot} ${H+26}" style="overflow:visible">`;
+  items.forEach((d,i)=>{
+    const x=pad+i*(bw+gap),barH=Math.max(2,(d[vKey]/maxV)*H),y=H-barH;
+    s+=`<rect x="${x}" y="${y}" width="${bw}" height="${barH}" rx="3" fill="${d.c}"/>`;
+    s+=`<text x="${x+bw/2}" y="${y-4}" text-anchor="middle" font-size="10" fill="${T}" font-weight="600">${d[vKey]}${suf}</text>`;
+    const words=d.co.split(' '),mid=Math.ceil(words.length/2);
+    s+=`<text x="${x+bw/2}" y="${H+12}" text-anchor="middle" font-size="9" fill="${MU}">${words.slice(0,mid).join(' ')}</text>`;
+    if(words.length>mid)s+=`<text x="${x+bw/2}" y="${H+22}" text-anchor="middle" font-size="9" fill="${MU}">${words.slice(mid).join(' ')}</text>`;
+  });
+  s+='</svg>';
+  document.getElementById(id).innerHTML=s;
+}
+vbars('btbars',bd,20,'t','mo');
+vbars('bsbars',bd,100,'s','');
+// Phase cards
+document.getElementById('pcards').innerHTML=ph.map(p=>`<div class="pcard" style="border-top-color:${p.c}"><div class="pnum" style="color:${p.c}">${p.n}</div><div class="pdur" style="color:${p.c}">${p.du}</div><div class="ptitle">${p.ti}</div>${p.to.map(t=>`<div class="ptool"><div class="tdot" style="background:${p.c}"></div>${t}</div>`).join('')}</div>`).join('');
+// Methods
+document.getElementById('mlist').innerHTML=me.map(m=>`<div class="mrow" style="border-left-color:${m.c}"><div class="mname" style="color:${m.c}">${m.m}</div><div class="mdesc">${m.f}</div></div>`).join('');
+// Diag questions
+document.getElementById('dqlist').innerHTML=dq.map(d=>`<div style="margin-bottom:11px"><div class="dmode" style="color:${d.c}">${d.mo}</div>${d.qs.map(q=>`<div class="dq"><span style="color:${d.c}">›</span><span>${q}</span></div>`).join('')}</div>`).join('');
+</script>
+</body>
+</html>
