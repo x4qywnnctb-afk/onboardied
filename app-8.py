@@ -1,0 +1,509 @@
+"""
+Adyen Onboarding Research — Evidence Dashboard v2.0
+Focus: 2024-2026 Data Only
+Streamlit Application with Adyen Brand Identity (Dutch Design)
+"""
+
+import streamlit as st
+import streamlit.components.v1 as components
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+import sqlite3
+import os
+
+# ============================================
+# ADYEN BRAND COLORS (Official Dutch Design)
+# ============================================
+ADYEN_MIDNIGHT = '#00112c'    # Primary text
+ADYEN_SECONDARY = '#5c687c'   # Labels and secondary text
+ADYEN_GREEN = '#0abf53'       # Brand accent, positive sentiment
+ADYEN_BLUE = '#0070f5'        # Links and highlights
+ADYEN_RED = '#e22d2d'         # Error states, negative sentiment
+ADYEN_BG = '#f7f7f8'          # App background (light gray)
+ADYEN_WHITE = '#ffffff'       # Card and container backgrounds
+ADYEN_BORDER = '#e6e8eb'      # Subtle borders
+
+DPI = 150  # High-quality chart export
+
+# ============================================
+# DATABASE INITIALIZATION (2024-2026 FOCUS)
+# ============================================
+@st.cache_resource
+def init_database():
+    """Initialize SQLite database with filtered data (2024-2026 only)"""
+    conn = sqlite3.connect('adyen_research.db', check_same_thread=False)
+    cursor = conn.cursor()
+
+    # TABLE 1: platform_ratings (2024-2025 data)
+    cursor.execute('DROP TABLE IF EXISTS platform_ratings')
+    cursor.execute('''
+        CREATE TABLE platform_ratings (
+            platform TEXT,
+            category TEXT,
+            score REAL,
+            max_score INTEGER,
+            review_count INTEGER,
+            date_range TEXT
+        )
+    ''')
+
+    platform_ratings_data = [
+        ('Blind', 'Overall', 3.5, 5, 357, '2024-2025'),
+        ('Blind', 'Work Life Balance', 4.3, 5, 357, '2024-2025'),
+        ('Blind', 'Management', 2.9, 5, 357, '2024-2025'),
+        ('Blind', 'Career Growth', 3.0, 5, 357, '2024-2025'),
+        ('Blind', 'Compensation', 3.8, 5, 357, '2024-2025'),
+        ('Glassdoor_SF', 'Overall', 3.8, 5, 57, '2024-2025'),
+        ('Glassdoor_SF', 'Work Life Balance', 4.1, 5, 57, '2024-2025'),
+        ('Glassdoor_SF', 'Career Opportunities', 3.3, 5, 57, '2024-2025'),
+        ('Comparably', 'Manager Onboarding', 1.3, 5, None, '2023-2024'),
+        ('Glassdoor_PM', 'Overall', 3.3, 5, None, '2024-2025'),
+        ('Indeed', 'Overall', 3.9, 5, None, '2024-2025')
+    ]
+    cursor.executemany('INSERT INTO platform_ratings VALUES (?,?,?,?,?,?)', platform_ratings_data)
+
+    # TABLE 2: sentiment_themes (loaded from CSV, filtered to 2024-2026)
+    cursor.execute('DROP TABLE IF EXISTS sentiment_themes')
+    cursor.execute('''
+        CREATE TABLE sentiment_themes (
+            theme TEXT,
+            positive_mentions INTEGER,
+            negative_mentions INTEGER,
+            platform TEXT,
+            year_range TEXT
+        )
+    ''')
+
+    # Load and filter CSV data for 2024-2026
+    try:
+        df_sentiment = pd.read_csv('feedback_data.csv')
+        # Filter for recent data: keep rows where year_range contains 2024, 2025, or 2026
+        df_sentiment_filtered = df_sentiment[
+            df_sentiment['year_range'].str.contains('2024|2025|2026', na=False)
+        ].copy()
+        df_sentiment_filtered.to_sql('sentiment_themes', conn, if_exists='replace', index=False)
+    except FileNotFoundError:
+        st.error("feedback_data.csv not found. Please ensure the file exists.")
+    except Exception as e:
+        st.error(f"Error loading sentiment data: {str(e)}")
+
+    conn.commit()
+    return conn
+
+# Initialize database
+conn = init_database()
+
+# ============================================
+# CHART GENERATION FUNCTIONS
+# ============================================
+
+
+def create_chart_02_sentiment():
+    """Chart 2: Sentiment Butterfly - sorted best (top) to worst (bottom)"""
+    # Read directly from CSV to avoid SQLite cache ordering issues
+    try:
+        df = pd.read_csv('feedback_data.csv')
+    except FileNotFoundError:
+        df = pd.read_sql_query("SELECT * FROM sentiment_themes", conn)
+
+    if df.empty:
+        st.warning("No sentiment data available.")
+        return None
+
+    # Compute sentiment ratio: higher = more positive, lower = more negative
+    df['total'] = df['positive_mentions'] + df['negative_mentions']
+    df['sentiment_ratio'] = df['positive_mentions'] / df['total'].replace(0, 1)
+
+    # Sort: WORST (most negative) at index 0 → renders at BOTTOM of chart
+    # BEST (most positive) at last index → renders at TOP
+    df = df.sort_values('sentiment_ratio', ascending=True).reset_index(drop=True)
+
+    themes = df['theme'].tolist()
+    positive = df['positive_mentions'].tolist()
+    negative = [-x for x in df['negative_mentions'].tolist()]  # Negative values for left side
+
+    y_pos = np.arange(len(themes))
+
+    fig, ax = plt.subplots(figsize=(14, 8), dpi=DPI)
+
+    # Create butterfly chart
+    ax.barh(y_pos, positive, color=ADYEN_GREEN, alpha=0.8, label='Positive Mentions', height=0.7)
+    ax.barh(y_pos, negative, color=ADYEN_RED, alpha=0.8, label='Negative Mentions', height=0.7)
+
+    # Add value labels
+    for i, (pos, neg) in enumerate(zip(positive, negative)):
+        if pos > 0:
+            ax.text(pos + max(positive)*0.01, i, str(int(pos)),
+                   va='center', ha='left', fontsize=9, color=ADYEN_MIDNIGHT, weight='500')
+        if neg < 0:
+            ax.text(neg - abs(min(negative))*0.01, i, str(int(abs(neg))),
+                   va='center', ha='right', fontsize=9, color=ADYEN_MIDNIGHT, weight='500')
+
+    ax.set_yticks(y_pos)
+    ax.set_yticklabels(themes, fontsize=10, color=ADYEN_MIDNIGHT)
+    ax.set_xlabel('Mentions (Negative ← | → Positive)', fontsize=11, weight='500', color=ADYEN_MIDNIGHT)
+    ax.set_title('Chart 2: Sentiment Analysis - What Engineers Talk About',
+                 fontsize=14, weight='600', pad=15, color=ADYEN_MIDNIGHT)
+    ax.axvline(x=0, color=ADYEN_MIDNIGHT, linewidth=1.5, linestyle='-')
+    ax.legend(loc='upper right', fontsize=10)
+    ax.grid(axis='x', alpha=0.15, color=ADYEN_SECONDARY)
+    ax.set_facecolor(ADYEN_WHITE)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color(ADYEN_BORDER)
+    ax.spines['bottom'].set_color(ADYEN_BORDER)
+
+    fig.patch.set_facecolor(ADYEN_WHITE)
+    plt.tight_layout(rect=[0, 0.06, 1, 1])
+    plt.figtext(0.5, 0.01,
+                'Data: Sentiment themes from Blind/Glassdoor/Taro/Indeed (2024-2026) | Dashboard by Serafima, Feb 2026',
+                ha='center', fontsize=8, color=ADYEN_SECONDARY)
+
+    # Save chart
+    os.makedirs('adyen_charts', exist_ok=True)
+    plt.savefig('adyen_charts/02_sentiment_butterfly.png', dpi=DPI, bbox_inches='tight',
+                facecolor=ADYEN_WHITE, edgecolor='none')
+
+    return fig
+
+
+
+def create_chart_03_keywords():
+    """Chart 3: Tag Cloud — 4-row layout, safe font sizes, no overlap"""
+
+    # 4 rows: 2 | 4 | 4 | 5 items, sorted largest → smallest
+    # Row 1 (top, biggest font):  2 items → each gets 7 inches of space
+    # Row 2:                       4 items → each gets 3.5 inches
+    # Row 3:                       4 items → each gets 3.5 inches
+    # Row 4 (bottom, smallest):   5 items → each gets 2.8 inches
+    onboarding_data = [
+        ("Sink or Swim",        48),   # row 1
+        ("Tribal Knowledge",    45),   # row 1
+        ("No Structured Training", 42),# row 2
+        ("Zero Guidance",       40),   # row 2
+        ("Outdated Docs",       38),   # row 2
+        ("No Feedback Loop",    35),   # row 2
+        ("Office Politics",     32),   # row 3
+        ("Figure It Out",       30),   # row 3
+        ("Context Overload",    28),   # row 3
+        ("No Tech Context",     25),   # row 3
+        ("Fake Politeness",     22),   # row 4
+        ("Trial by Fire",       20),   # row 4
+        ("No Mentorship",       18),   # row 4
+        ("Chaotic Process",     15),   # row 4
+        ("Generic Training",    12),   # row 4
+    ]
+
+    counts = [c for _, c in onboarding_data]
+    min_c, max_c = min(counts), max(counts)
+
+    def lerp_color(c):
+        t = (c - min_c) / (max_c - min_c)
+        r = int(0xb0 + t * (0x00 - 0xb0))
+        g = int(0xe8 + t * (0x99 - 0xe8))
+        b = int(0xc8 + t * (0x3a - 0xc8))
+        return f'#{r:02x}{g:02x}{b:02x}'
+
+    # Fixed font size per row — safe for figure width of 14 inches
+    row_configs = [
+        # (items_slice,  y_pos,  fontsize,  fontweight)
+        (onboarding_data[0:2],   0.80,  21, 'bold'),
+        (onboarding_data[2:6],   0.58,  17, 'semibold'),
+        (onboarding_data[6:10],  0.37,  14, 'normal'),
+        (onboarding_data[10:15], 0.16,  11, 'normal'),
+    ]
+
+    fig, ax = plt.subplots(figsize=(14, 6), dpi=DPI)
+    ax.set_facecolor('#ffffff')
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
+    fig.patch.set_facecolor('#ffffff')
+
+    for group, y_c, fsize, fweight in row_configs:
+        n = len(group)
+        xs = [(j + 1) / (n + 1) for j in range(n)]
+        for (phrase, count), x in zip(group, xs):
+            ax.text(x, y_c, phrase,
+                    fontsize=fsize,
+                    color=lerp_color(count),
+                    fontweight=fweight,
+                    ha='center', va='center',
+                    transform=ax.transAxes)
+
+    fig.text(0.5, 0.96,
+             'Chart 3: Top Onboarding Issues — Tag Cloud',
+             ha='center', va='top',
+             fontsize=14, fontweight='600', color=ADYEN_MIDNIGHT)
+
+    fig.text(0.5, 0.02,
+             'Tag size & colour = mention frequency  |  Darker green = mentioned more often  |  '
+             'Data: Employee feedback 2024-2026 | Serafima, Feb 2026',
+             ha='center', va='bottom', fontsize=7.5, color=ADYEN_SECONDARY)
+
+    plt.subplots_adjust(left=0.02, right=0.98, top=0.90, bottom=0.08)
+
+    os.makedirs('adyen_charts', exist_ok=True)
+    plt.savefig('adyen_charts/03_top_keywords.png', dpi=DPI, bbox_inches='tight',
+                facecolor='#ffffff', edgecolor='none')
+
+    try:
+        import plotly.graph_objects as go
+        annotations = []
+        plotly_sizes = [32, 24, 19, 15]
+        for (group, y_c, _, _), psize in zip(row_configs, plotly_sizes):
+            n = len(group)
+            xs = [(j + 1) / (n + 1) for j in range(n)]
+            for (phrase, count), x in zip(group, xs):
+                annotations.append(dict(
+                    x=x, y=y_c,
+                    text=f"<b>{phrase}</b>" if count >= 40 else phrase,
+                    showarrow=False,
+                    font=dict(size=psize, color=lerp_color(count),
+                              family='Inter, Arial, sans-serif'),
+                    xanchor='center', yanchor='middle',
+                    xref='paper', yref='paper'
+                ))
+        pfig = go.Figure()
+        pfig.update_layout(
+            annotations=annotations,
+            xaxis=dict(visible=False, range=[0, 1]),
+            yaxis=dict(visible=False, range=[0, 1]),
+            plot_bgcolor='white', paper_bgcolor='white',
+            margin=dict(l=20, r=20, t=60, b=40), height=420,
+            title=dict(text='Chart 3: Top Onboarding Issues — Tag Cloud',
+                       font=dict(size=16, color='#00112c',
+                                 family='Inter, Arial, sans-serif'),
+                       x=0.5, xanchor='center')
+        )
+        pfig.write_html('adyen_charts/03_top_keywords.html',
+                        include_plotlyjs='cdn', full_html=True)
+    except ImportError:
+        pass
+
+    return fig
+
+
+# ============================================
+# STREAMLIT APP CONFIGURATION
+# ============================================
+st.set_page_config(
+    page_title="Adyen Onboarding Research Dashboard",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ============================================
+# CRITICAL: FORCE LIGHT THEME (Fix Invisible Text)
+# ============================================
+# ============================================
+# CRITICAL: FORCE LIGHT THEME (Fix Invisible Text)
+# ============================================
+st.markdown(
+    "<style>"
+    ".stApp{background-color:#f7f7f8!important}"
+    "h1,h2,h3,p,li,.stMarkdown{color:#00112c!important;font-family:'Inter',sans-serif!important}"
+    ".stPlotlyChart,.stPyplot{background-color:#ffffff!important;border-radius:8px;padding:1rem;box-shadow:0 2px 4px rgba(0,0,0,.05)}"
+    "[data-testid='stSidebar']{background-color:#ffffff!important;border-right:1px solid #e6e8eb!important}"
+    "[data-testid='stSidebar'] h1,[data-testid='stSidebar'] h2,[data-testid='stSidebar'] h3,"
+    "[data-testid='stSidebar'] p,[data-testid='stSidebar'] span,[data-testid='stSidebar'] div,"
+    "[data-testid='stSidebar'] label{color:#00112c!important}"
+    "[data-testid='stSidebarCollapseButton'] button,"
+    "[data-testid='collapsedControl'] button,"
+    "button[data-testid='baseButton-header']"
+    "{font-size:0!important;color:transparent!important;background:transparent!important;"
+    "border:none!important;width:2rem!important;height:2rem!important;"
+    "padding:0!important;cursor:pointer!important;position:relative!important}"
+    "[data-testid='stSidebarCollapseButton'] button::before,"
+    "[data-testid='collapsedControl'] button::before,"
+    "button[data-testid='baseButton-header']::before"
+    "{content:'\\2039'!important;font-size:1.5rem!important;color:#5c687c!important;"
+    "font-family:'Inter',sans-serif!important;position:absolute!important;"
+    "top:50%!important;left:50%!important;transform:translate(-50%,-50%)!important;line-height:1!important}"
+    ".stButton>button{background-color:#0abf53!important;color:#ffffff!important;"
+    "border:none!important;border-radius:6px!important;font-weight:500!important;padding:.5rem 1rem!important}"
+    ".stButton>button:hover{background-color:#089944!important;box-shadow:0 4px 8px rgba(10,191,83,.2)!important}"
+    ".stSelectbox>div>div{background-color:#ffffff!important;border:1px solid #e6e8eb!important;color:#00112c!important}"
+    "[data-testid='stMetricValue']{color:#00112c!important;font-size:2rem!important;font-weight:600!important}"
+    "[data-testid='stMetricLabel']{color:#5c687c!important;font-size:.9rem!important}"
+    ".element-container{color:#00112c!important}"
+    ".stAlert{background-color:#ffffff!important;color:#00112c!important;border-left:4px solid #0abf53!important}"
+    "</style>",
+    unsafe_allow_html=True
+)
+
+# ============================================
+# SIDEBAR NAVIGATION
+# ============================================
+with st.sidebar:
+    st.markdown(f"""
+        <h1 style='color: {ADYEN_MIDNIGHT}; font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;'>
+            Adyen Onboarding Research
+        </h1>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 0.9rem; margin-bottom: 2rem;'>
+            Evidence Dashboard v2.0<br>
+            Focus: 2024-2026 Data
+        </p>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"<h3 style='color: {ADYEN_MIDNIGHT}; font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;'>Navigation</h3>",
+                unsafe_allow_html=True)
+
+    selected_chart = st.selectbox(
+        "Select Chart",
+        [
+            "Chart 1: Research Intelligence",
+            "Chart 2: Sentiment Butterfly",
+            "Chart 3: Top Onboarding Issues",
+            "Chart 4: Adyen Onboarding Solution",
+            "Chart 5: PM Decision Simulation"
+        ],
+        label_visibility="collapsed"
+    )
+
+    st.markdown("---")
+
+    # Data sources info
+    st.markdown(f"""
+        <div style='padding: 1rem; background-color: {ADYEN_BG}; border-radius: 8px; margin-top: 1rem;'>
+            <h4 style='color: {ADYEN_MIDNIGHT}; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;'>
+                Data Sources
+            </h4>
+            <ul style='color: {ADYEN_SECONDARY}; font-size: 0.8rem; line-height: 1.6; margin: 0; padding-left: 1.2rem;'>
+                <li>Blind (n=357 reviews)</li>
+                <li>Glassdoor (n=880 reviews)</li>
+                <li>Indeed (n=195 reviews)</li>
+                <li>Comparably (n=450 ratings)</li>
+            </ul>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    st.markdown(f"""
+        <p style='color: {ADYEN_SECONDARY}; font-size: 0.75rem; text-align: center; margin-top: 2rem;'>
+            Dashboard by Serafima<br>
+            February 2026
+        </p>
+    """, unsafe_allow_html=True)
+
+# ============================================
+# MAIN CONTENT AREA
+# ============================================
+
+# Header
+st.markdown(f"""
+    <h1 style='color: {ADYEN_MIDNIGHT}; font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem;'>
+        Adyen Onboarding Research Dashboard
+    </h1>
+    <p style='color: {ADYEN_SECONDARY}; font-size: 1.1rem; margin-bottom: 2rem;'>
+        Evidence-based analysis of employee feedback (2024-2026 focus)
+    </p>
+""", unsafe_allow_html=True)
+
+# Display selected chart
+if selected_chart == "Chart 2: Sentiment Butterfly":
+    st.markdown(f"""
+        <h2 style='color: {ADYEN_MIDNIGHT}; font-size: 1.8rem; font-weight: 600; margin-bottom: 1rem;'>
+            Chart 2: Sentiment Analysis
+        </h2>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
+            Butterfly chart comparing positive vs. negative mentions across key themes (2024-2026 data).
+        </p>
+    """, unsafe_allow_html=True)
+
+    with st.spinner("Generating sentiment analysis..."):
+        fig = create_chart_02_sentiment()
+        if fig:
+            st.pyplot(fig)
+            plt.close()
+
+    st.info("Green bars = positive mentions, red bars = negative. Sorted from best-rated (top) to worst-rated (bottom). Bar length = frequency.")
+
+elif selected_chart == "Chart 3: Top Onboarding Issues":
+    st.markdown(f"""
+        <h2 style='color: {ADYEN_MIDNIGHT}; font-size: 1.8rem; font-weight: 600; margin-bottom: 1rem;'>
+            Chart 3: Top Onboarding Issues
+        </h2>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
+            Tag cloud showing onboarding and learning challenges from employee feedback (2024-2026). Larger and darker tags = mentioned more frequently.
+        </p>
+    """, unsafe_allow_html=True)
+
+    with st.spinner("Generating onboarding issues tag cloud..."):
+        fig = create_chart_03_keywords()
+        if fig:
+            st.pyplot(fig)
+            plt.close()
+
+    # Key insights
+    st.markdown(f"""
+        <div style='padding: 1.5rem; background-color: {ADYEN_WHITE}; border-radius: 8px; border-left: 4px solid {ADYEN_GREEN}; margin-top: 1.5rem;'>
+            <h3 style='color: {ADYEN_MIDNIGHT}; font-size: 1.2rem; font-weight: 600; margin-bottom: 0.8rem;'>
+                Key Insights
+            </h3>
+            <ul style='color: {ADYEN_SECONDARY}; font-size: 1rem; line-height: 1.8; margin: 0; padding-left: 1.5rem;'>
+                <li><strong>Top Issue:</strong> "Thrown into the deep end (Sink or Swim)" - mentioned 48 times</li>
+                <li><strong>Second Issue:</strong> "Tribal knowledge hoarding" - mentioned 45 times</li>
+                <li><strong>Third Issue:</strong> "Lack of structured training" - mentioned 42 times</li>
+                <li><strong>Pattern:</strong> Clear gap in structured onboarding and knowledge sharing processes</li>
+            </ul>
+        </div>
+    """, unsafe_allow_html=True)
+
+# ============================================
+# CHART 3: Research Intelligence (React/Recharts)
+# ============================================
+elif selected_chart == "Chart 1: Research Intelligence":
+    st.markdown(f"""
+        <h2 style='color: {ADYEN_MIDNIGHT}; font-size: 1.8rem; font-weight: 600; margin-bottom: 0.5rem;'>
+            Chart 1: Engineering Onboarding Intelligence
+        </h2>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
+            Interactive root cause analysis — Root Causes · Key Data · Benchmarks · Methodology
+        </p>
+    """, unsafe_allow_html=True)
+
+    html_content = open("onboarding_viz.html", "r", encoding="utf-8").read()
+    components.html(html_content, height=900, scrolling=True)
+
+elif selected_chart == "Chart 4: Adyen Onboarding Solution":
+    st.markdown(f"""
+        <h2 style='color: {ADYEN_MIDNIGHT}; font-size: 1.8rem; font-weight: 600; margin-bottom: 0.5rem;'>
+            Chart 4: Adyen Onboarding Solution
+        </h2>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
+            Interactive prototype — The Adyen Context Layer, Navigator &amp; Buddy Co-pilot
+        </p>
+    """, unsafe_allow_html=True)
+
+    html_content = open("adyen_chart4.html", "r", encoding="utf-8").read()
+    components.html(html_content, height=950, scrolling=True)
+
+elif selected_chart == "Chart 5: PM Decision Simulation":
+    st.markdown(f"""
+        <h2 style='color: {ADYEN_MIDNIGHT}; font-size: 1.8rem; font-weight: 600; margin-bottom: 0.5rem;'>
+            Chart 5: PM Decision Simulation
+        </h2>
+        <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
+            Interactive PM scenario simulator — practice real Adyen product decisions
+        </p>
+    """, unsafe_allow_html=True)
+
+    html_content = open("adyen_pm_sim.html", "r", encoding="utf-8").read()
+    components.html(html_content, height=950, scrolling=True)
+
+
+st.markdown(f"""
+    <div style='text-align: center; color: {ADYEN_SECONDARY}; font-size: 0.85rem; padding: 2rem 0 1rem 0;'>
+        <p style='margin-bottom: 0.5rem;'>
+            <strong>Adyen Onboarding Research Dashboard v2.0</strong>
+        </p>
+        <p style='margin: 0;'>
+            Data sources: Blind, Glassdoor, Indeed, Comparably | Focus: 2024-2026 | Dashboard by Serafima, February 2026
+        </p>
+    </div>
+""", unsafe_allow_html=True)

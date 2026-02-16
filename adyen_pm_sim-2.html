@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adyen PM Simulation</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+:root {
+  --bg:#f7f7f8; --white:#ffffff; --midnight:#00112c; --secondary:#5c687c;
+  --border:rgba(0,17,44,.10); --border-strong:rgba(0,17,44,.16); --faint:rgba(0,17,44,.05);
+  --green:#0abf53; --green-dim:rgba(10,191,83,.09); --green-ring:rgba(10,191,83,.18);
+  --blue:#0070f5; --blue-dim:rgba(0,112,245,.08);
+  --red:#e22d2d; --red-dim:rgba(226,45,45,.08);
+  --orange:#f5820a; --orange-dim:rgba(245,130,10,.10);
+  --purple:#7c3aed; --purple-dim:rgba(124,58,237,.09);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--midnight);font-family:'Plus Jakarta Sans',Helvetica,Arial,sans-serif;min-height:100vh;}
+
+/* NAV */
+nav{background:var(--white);border-bottom:1px solid var(--border);padding:0 44px;display:flex;align-items:stretch;position:sticky;top:0;z-index:100;gap:0;}
+.nav-logo{font-size:13px;font-weight:700;letter-spacing:-.01em;color:var(--midnight);padding:17px 28px 17px 0;border-right:1px solid var(--border);margin-right:4px;display:flex;align-items:center;gap:8px;}
+.nav-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--green);}
+.nav-tab{font-size:11.5px;font-weight:500;color:var(--secondary);padding:0 16px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;font-family:inherit;white-space:nowrap;}
+.nav-tab:hover{color:var(--midnight);}
+.nav-tab.active{color:var(--midnight);border-bottom-color:var(--green);font-weight:600;}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:11px;color:var(--secondary);}
+.score-badge{background:var(--green-dim);color:var(--green);border:1px solid rgba(10,191,83,.25);border-radius:3px;padding:4px 10px;font-weight:700;font-size:11px;letter-spacing:.04em;transition:all .3s;}
+
+/* DIFFICULTY SELECTOR */
+#difficulty-screen{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 55px);padding:24px;}
+.diff-wrap{max-width:700px;width:100%;}
+.diff-eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:10px;}
+.diff-title{font-size:28px;font-weight:700;letter-spacing:-.025em;color:var(--midnight);margin-bottom:8px;line-height:1.2;}
+.diff-sub{font-size:14px;color:var(--secondary);line-height:1.6;margin-bottom:36px;}
+.diff-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:600px){.diff-cards{grid-template-columns:1fr;}}
+.diff-card{background:var(--white);border:1.5px solid var(--border-strong);border-radius:8px;padding:24px 22px;cursor:pointer;transition:all .2s;text-align:left;}
+.diff-card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,17,44,.08);}
+.diff-card.level-1:hover,.diff-card.level-1.picked{border-color:var(--green);background:var(--green-dim);}
+.diff-card.level-2:hover,.diff-card.level-2.picked{border-color:var(--blue);background:var(--blue-dim);}
+.diff-card.level-3:hover,.diff-card.level-3.picked{border-color:var(--purple);background:var(--purple-dim);}
+.diff-num{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;}
+.level-1 .diff-num{color:var(--green);}
+.level-2 .diff-num{color:var(--blue);}
+.level-3 .diff-num{color:var(--purple);}
+.diff-name{font-size:16px;font-weight:700;color:var(--midnight);margin-bottom:8px;}
+.diff-desc{font-size:12.5px;color:var(--secondary);line-height:1.6;}
+.diff-tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:5px;}
+.diff-tag{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;border-radius:3px;padding:3px 8px;border:1px solid;}
+.tag-green{background:var(--green-dim);color:var(--green);border-color:rgba(10,191,83,.2);}
+.tag-blue{background:var(--blue-dim);color:var(--blue);border-color:rgba(0,112,245,.2);}
+.tag-purple{background:var(--purple-dim);color:var(--purple);border-color:rgba(124,58,237,.2);}
+.start-btn{display:none;margin-top:24px;background:var(--midnight);color:#fff;border:none;border-radius:4px;padding:13px 28px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s;}
+.start-btn:hover{background:#002060;}
+.start-btn.show{display:inline-block;}
+
+/* MAIN */
+main{max-width:860px;margin:0 auto;padding:44px 24px 80px;display:none;}
+main.show{display:block;}
+
+/* SCENARIO */
+.scenario{display:none;}
+.scenario.active{display:block;}
+.progress-bar{height:3px;background:var(--faint);border-radius:2px;overflow:hidden;margin-bottom:36px;}
+.progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s ease;}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:8px;}
+.sc-title{font-size:25px;font-weight:700;letter-spacing:-.025em;color:var(--midnight);margin-bottom:8px;line-height:1.2;}
+.sc-sub{font-size:13.5px;color:var(--secondary);line-height:1.6;margin-bottom:28px;}
+
+/* DIFFICULTY BADGE */
+.level-indicator{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;border:1px solid;}
+.li-1{background:var(--green-dim);color:var(--green);border-color:rgba(10,191,83,.2);}
+.li-2{background:var(--blue-dim);color:var(--blue);border-color:rgba(0,112,245,.2);}
+.li-3{background:var(--purple-dim);color:var(--purple);border-color:rgba(124,58,237,.2);}
+
+/* CARD */
+.card{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:22px 26px;margin-bottom:20px;}
+.card-label{font-size:9.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--secondary);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.card-label::before{content:'';display:block;width:3px;height:14px;border-radius:2px;background:var(--green);flex-shrink:0;}
+.card p{font-size:14px;line-height:1.75;color:var(--midnight);}
+
+/* INTEL GRID */
+.intel-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;}
+@media(max-width:600px){.intel-grid{grid-template-columns:1fr;}}
+.intel-item{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:16px 18px;}
+
+/* LEVEL 3: intel items are hidden/blurred initially */
+.intel-item.locked{filter:blur(4px);user-select:none;pointer-events:none;transition:filter .4s;}
+.intel-item.unlocked{filter:none;}
+
+.intel-source{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}
+.tag{padding:2px 8px;border-radius:3px;font-size:9px;font-weight:700;letter-spacing:.08em;}
+.tag-eng{background:var(--blue-dim);color:var(--blue);}
+.tag-legal{background:var(--orange-dim);color:var(--orange);}
+.tag-formula{background:var(--green-dim);color:var(--green);}
+.tag-data{background:rgba(92,104,124,.10);color:var(--secondary);}
+.tag-risk{background:var(--red-dim);color:var(--red);}
+.intel-text{font-size:13px;line-height:1.65;color:var(--midnight);}
+
+/* LEVEL 3: intel unlock UI */
+.intel-unlock-section{display:none;margin-bottom:20px;}
+.intel-unlock-section.show{display:block;}
+.unlock-prompt{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);margin-bottom:12px;}
+.unlock-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:600px){.unlock-grid{grid-template-columns:1fr;}}
+.unlock-item{background:var(--white);border:1.5px solid var(--border-strong);border-radius:6px;padding:14px 16px;}
+.unlock-item-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;}
+.unlock-item textarea{width:100%;border:1px solid var(--border);border-radius:4px;padding:10px 12px;font-family:inherit;font-size:12.5px;line-height:1.6;color:var(--midnight);resize:vertical;min-height:72px;transition:border .18s;background:var(--bg);}
+.unlock-item textarea:focus{outline:none;border-color:var(--purple);}
+.unlock-item textarea.filled{border-color:var(--green);}
+.unlock-btn{margin-top:10px;background:var(--purple);color:#fff;border:none;border-radius:4px;padding:9px 20px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s;opacity:.4;pointer-events:none;}
+.unlock-btn.ready{opacity:1;pointer-events:all;}
+.unlock-btn.ready:hover{background:#6d28d9;}
+
+/* LEVEL 2: open text answer */
+.open-answer-section{display:none;margin-bottom:20px;}
+.open-answer-section.show{display:block;}
+.open-label{font-size:11px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--blue);margin-bottom:10px;}
+.open-input{width:100%;border:1.5px solid var(--border-strong);border-radius:6px;padding:14px 18px;font-family:inherit;font-size:13.5px;line-height:1.7;color:var(--midnight);resize:vertical;min-height:90px;transition:border .18s;background:var(--white);}
+.open-input:focus{outline:none;border-color:var(--blue);}
+.open-input.filled{border-color:var(--green);}
+.open-submit{display:none;margin-top:10px;background:var(--blue);color:#fff;border:none;border-radius:4px;padding:10px 22px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s;}
+.open-submit.show{display:inline-block;}
+.open-submit:hover{background:#005fcc;}
+
+/* LEVEL 1: multiple choice */
+.choices-section{display:none;margin-bottom:0;}
+.choices-section.show{display:block;}
+.choices-label{font-size:11px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;color:var(--secondary);margin-bottom:14px;}
+.choice-btn{width:100%;background:var(--white);border:1.5px solid var(--border-strong);border-radius:6px;padding:17px 20px;margin-bottom:10px;cursor:pointer;text-align:left;transition:all .18s;font-family:inherit;display:flex;align-items:flex-start;gap:14px;}
+.choice-btn:hover{border-color:var(--green);background:var(--green-dim);transform:translateX(3px);}
+.choice-btn.sel-right{border-color:var(--green);background:var(--green-dim);}
+.choice-btn.sel-partial{border-color:var(--orange);background:var(--orange-dim);}
+.choice-btn.sel-wrong{border-color:var(--red);background:var(--red-dim);}
+.choice-btn:disabled{cursor:default;transform:none;}
+.choice-key{width:24px;height:24px;border-radius:4px;flex-shrink:0;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--secondary);transition:all .18s;margin-top:1px;}
+.choice-btn:hover .choice-key,.choice-btn.sel-right .choice-key{border-color:var(--green);color:var(--green);}
+.choice-btn.sel-wrong .choice-key{border-color:var(--red);color:var(--red);}
+.choice-btn.sel-partial .choice-key{border-color:var(--orange);color:var(--orange);}
+.choice-title{font-size:14px;font-weight:600;color:var(--midnight);margin-bottom:3px;}
+.choice-desc{font-size:12.5px;color:var(--secondary);line-height:1.55;}
+
+/* FEEDBACK */
+.feedback{display:none;border-radius:6px;padding:20px 24px;margin-top:16px;border:1px solid;}
+.feedback.show{display:block;}
+.feedback.right{background:var(--green-dim);border-color:rgba(10,191,83,.25);}
+.feedback.wrong{background:var(--red-dim);border-color:rgba(226,45,45,.20);}
+.feedback.partial{background:var(--orange-dim);border-color:rgba(245,130,10,.20);}
+.feedback.open-eval{background:var(--blue-dim);border-color:rgba(0,112,245,.20);}
+.fb-head{font-size:11px;font-weight:700;letter-spacing:.10em;text-transform:uppercase;margin-bottom:8px;}
+.feedback.right .fb-head{color:var(--green);}
+.feedback.wrong .fb-head{color:var(--red);}
+.feedback.partial .fb-head{color:var(--orange);}
+.feedback.open-eval .fb-head{color:var(--blue);}
+.feedback p{font-size:13.5px;line-height:1.7;color:var(--midnight);}
+.ideal-answer{margin-top:14px;padding:14px 16px;background:rgba(0,17,44,.04);border-radius:4px;border-left:3px solid var(--green);}
+.ideal-label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--secondary);margin-bottom:6px;}
+.ideal-text{font-size:13px;line-height:1.65;color:var(--midnight);}
+.formula-tag{display:inline-flex;align-items:center;gap:5px;background:var(--green-dim);border:1px solid rgba(10,191,83,.25);border-radius:3px;padding:3px 10px;font-size:10px;font-weight:700;color:var(--green);letter-spacing:.06em;text-transform:uppercase;margin-top:10px;}
+
+/* L3 intel feedback */
+.intel-eval{display:none;margin-bottom:16px;}
+.intel-eval.show{display:block;}
+.intel-eval-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:600px){.intel-eval-grid{grid-template-columns:1fr;}}
+.intel-eval-item{background:var(--white);border:1px solid var(--border);border-radius:5px;padding:12px 14px;}
+.ie-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px;}
+.ie-check{font-size:11px;line-height:1.55;color:var(--secondary);}
+.ie-check.good{color:var(--green);}
+.ie-check.miss{color:var(--orange);}
+
+/* NEXT BTN */
+.next-btn{display:none;margin-top:20px;background:var(--midnight);color:#fff;border:none;border-radius:4px;padding:12px 24px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s;}
+.next-btn:hover{background:#002060;}
+.next-btn.show{display:inline-block;}
+
+/* RESULTS */
+#results{display:none;}
+#results.show{display:block;}
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:28px 0;}
+@media(max-width:600px){.results-grid{grid-template-columns:1fr;}}
+.result-item{background:var(--white);border:1px solid var(--border);border-radius:6px;padding:20px 22px;}
+.r-sc{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--secondary);margin-bottom:8px;}
+.r-score{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;}
+.r-label{font-size:12px;color:var(--secondary);}
+.s100{color:var(--green);}
+.s50{color:var(--orange);}
+.s0{color:var(--red);}
+.restart-btn{background:var(--green);color:#fff;border:none;border-radius:4px;padding:13px 28px;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .18s;margin-top:8px;}
+.restart-btn:hover{background:#08a845;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo"><div class="dot"></div>Adyen PM Simulation</div>
+  <button class="nav-tab" id="nt0" onclick="navGo(0)">Marketplace</button>
+  <button class="nav-tab" id="nt1" onclick="navGo(1)">India Async</button>
+  <button class="nav-tab" id="nt2" onclick="navGo(2)">TLS Sunset</button>
+  <button class="nav-tab" id="nt3" onclick="navGo(3)">PostgreSQL</button>
+  <div class="nav-right">
+    <span>Formula:</span>
+    <span class="score-badge" id="score-badge">—</span>
+  </div>
+</nav>
+
+<!-- DIFFICULTY SCREEN -->
+<div id="difficulty-screen">
+  <div class="diff-wrap">
+    <div class="diff-eyebrow">Adyen PM Simulation · 4 Scenarios</div>
+    <div class="diff-title">Choose difficulty level</div>
+    <div class="diff-sub">Each level tests a different layer of product thinking. Start with Level 1 if you're new to Adyen's decision framework, or jump straight to Level 3 if you want a real challenge.</div>
+    <div class="diff-cards">
+
+      <div class="diff-card level-1" onclick="pickLevel(1)">
+        <div class="diff-num">Level 01</div>
+        <div class="diff-name">Multiple Choice</div>
+        <div class="diff-desc">Read the intel, pick the best answer from three options. Immediate feedback after each choice.</div>
+        <div class="diff-tags">
+          <span class="diff-tag tag-green">Choose A / B / C</span>
+          <span class="diff-tag tag-green">Instant feedback</span>
+        </div>
+      </div>
+
+      <div class="diff-card level-2" onclick="pickLevel(2)">
+        <div class="diff-num">Level 02</div>
+        <div class="diff-name">Open Answer</div>
+        <div class="diff-desc">Read the intel, then write your own decision and rationale in free text. No multiple choice crutch.</div>
+        <div class="diff-tags">
+          <span class="diff-tag tag-blue">Write your decision</span>
+          <span class="diff-tag tag-blue">AI-style scoring</span>
+        </div>
+      </div>
+
+      <div class="diff-card level-3" onclick="pickLevel(3)">
+        <div class="diff-num">Level 03</div>
+        <div class="diff-name">Intelligence Analysis</div>
+        <div class="diff-desc">Intel cards are blurred. You must first describe what you expect to find in each category before they unlock.</div>
+        <div class="diff-tags">
+          <span class="diff-tag tag-purple">Locked intel</span>
+          <span class="diff-tag tag-purple">Write intel first</span>
+          <span class="diff-tag tag-purple">Then answer</span>
+        </div>
+      </div>
+
+    </div>
+    <button class="start-btn" id="start-btn" onclick="startSim()">Start Simulation →</button>
+  </div>
+</div>
+
+<!-- MAIN SIM -->
+<main id="main-sim">
+
+<!-- S0 -->
+<div class="scenario" id="s0">
+  <div class="progress-bar"><div class="progress-fill" style="width:25%"></div></div>
+  <div class="level-indicator" id="li0"></div>
+  <div class="eyebrow">Scenario 01 / 04 — Platform Growth</div>
+  <div class="sc-title">The Marketplace Dilemma</div>
+  <div class="sc-sub">Inspired by: Adyen's migration of eBay and the creation of Adyen for Platforms</div>
+
+  <div class="card">
+    <div class="card-label">Briefing</div>
+    <p>You're the PM responsible for onboarding a major new marketplace called Global-Shop. The Sales Director walks in: <em>"Global-Shop will sign a €10B volume contract — but their CFO wants a dedicated payout system with a 45-day settlement cycle for their Chinese suppliers. It's just one branch in the code, nobody will notice."</em></p>
+  </div>
+
+  <!-- LEVEL 3: write intel first -->
+  <div class="intel-unlock-section" id="s0-unlock">
+    <div class="unlock-prompt">Level 03 — Describe what you expect to find in each intelligence source before unlocking the actual data</div>
+    <div class="unlock-grid">
+      <div class="unlock-item">
+        <div class="unlock-item-label"><span class="tag tag-eng">Engineering</span></div>
+        <textarea id="s0-u-eng" placeholder="What do you think Engineering will say about building a custom payout fork?" oninput="checkUnlock(0)"></textarea>
+      </div>
+      <div class="unlock-item">
+        <div class="unlock-item-label"><span class="tag tag-formula">The Formula</span></div>
+        <textarea id="s0-u-formula" placeholder="What does Adyen's Formula say about custom client modifications?" oninput="checkUnlock(0)"></textarea>
+      </div>
+      <div class="unlock-item">
+        <div class="unlock-item-label"><span class="tag tag-data">Backlog</span></div>
+        <textarea id="s0-u-backlog" placeholder="What might already exist in the product backlog that's relevant here?" oninput="checkUnlock(0)"></textarea>
+      </div>
+      <div class="unlock-item">
+        <div class="unlock-item-label"><span class="tag tag-risk">Risk</span></div>
+        <textarea id="s0-u-risk" placeholder="What are the long-term risks of the fork approach for platform architecture?" oninput="checkUnlock(0)"></textarea>
+      </div>
+    </div>
+    <button class="unlock-btn" id="s0-unlock-btn" onclick="unlockIntel(0)">Unlock Intel Cards →</button>
+  </div>
+
+  <div class="intel-grid" id="s0-intel">
+    <div class="intel-item" id="s0-i0"><div class="intel-source"><span class="tag tag-eng">Engineering</span></div><div class="intel-text">"Building this 'on the side' takes 2 weeks, but will block updates to the global payout engine for 6 months."</div></div>
+    <div class="intel-item" id="s0-i1"><div class="intel-source"><span class="tag tag-formula">The Formula</span></div><div class="intel-text">"No individual modifications for single customers. One platform, all merchants."</div></div>
+    <div class="intel-item" id="s0-i2"><div class="intel-source"><span class="tag tag-data">Backlog</span></div><div class="intel-text">"Generic Multi-Party Payouts module available in 9 months as a platform-wide feature."</div></div>
+    <div class="intel-item" id="s0-i3"><div class="intel-source"><span class="tag tag-risk">Risk</span></div><div class="intel-text">"A private fork creates a dependency: Global-Shop can block future global API changes."</div></div>
+  </div>
+
+  <!-- L3 intel eval -->
+  <div class="intel-eval" id="s0-intel-eval">
+    <div class="intel-eval-grid" id="s0-eval-grid"></div>
+  </div>
+
+  <!-- L2: open answer -->
+  <div class="open-answer-section" id="s0-open">
+    <div class="open-label">What is your decision and rationale?</div>
+    <textarea class="open-input" id="s0-open-input" placeholder="Describe what you would do as PM and why — consider The Formula, technical debt, and the client relationship..." oninput="onOpenInput(0)"></textarea>
+    <button class="open-submit" id="s0-open-submit" onclick="evalOpen(0)">Submit Answer</button>
+  </div>
+
+  <!-- L1: choices -->
+  <div class="choices-section" id="s0-choices">
+    <div class="choices-label">What do you decide?</div>
+    <button class="choice-btn" id="s0-c0" onclick="choose(0,0,'wrong','A')"><div class="choice-key">A</div><div><div class="choice-title">Build it for them now</div><div class="choice-desc">Immediate contract signed. Engineering builds the custom fork in 2 weeks.</div></div></button>
+    <button class="choice-btn" id="s0-c1" onclick="choose(0,1,'partial','B')"><div class="choice-key">B</div><div><div class="choice-title">Refuse — wait 9 months</div><div class="choice-desc">Clean codebase, zero debt. Risk: Global-Shop goes to Stripe.</div></div></button>
+    <button class="choice-btn" id="s0-c2" onclick="choose(0,2,'right','C')"><div class="choice-key">C</div><div><div class="choice-title">Productize the request</div><div class="choice-desc">Negotiate: deliver in 4 months as a standard API module for all merchants.</div></div></button>
+  </div>
+
+  <div class="feedback right" id="s0-fb-right"><div class="fb-head">Correct — 80% Formula alignment</div><p>You turn a client-specific request into a platform feature. Engineering accelerates the global product; codebase stays clean. This is exactly how Adyen for Platforms was born from the eBay negotiation.</p><div class="formula-tag">One platform, all merchants</div></div>
+  <div class="feedback partial" id="s0-fb-partial"><div class="fb-head">Too conservative</div><p>Clean code, but potentially a lost contract. Option C delivers the same outcome — no fork, clean platform — while keeping the client. Pure purism without finding a third path is not product leadership.</p></div>
+  <div class="feedback wrong" id="s0-fb-wrong"><div class="fb-head">Formula violation — 0%</div><p>The private fork means Global-Shop can block every future global API change. In 12 months your engineering team will hate you. Adyen's competitive advantage is its single platform — fragmenting it creates a liability worth more than the €10B volume gain.</p></div>
+  <div class="feedback open-eval" id="s0-fb-open"><div class="fb-head">Answer evaluated</div><p id="s0-open-eval-text"></p><div class="ideal-answer"><div class="ideal-label">Ideal answer</div><div class="ideal-text">Productize the request: negotiate a 4-month timeline to deliver a standard multi-party payouts module accessible to all merchants via API. No fork, no custom code — just an accelerated backlog item. This preserves The Formula, eliminates the architecture risk, and keeps the €10B contract.</div></div></div>
+
+  <button class="next-btn" id="s0-next" onclick="navGo(1)">Next Scenario →</button>
+</div>
+
+<!-- S1 -->
+<div class="scenario" id="s1">
+  <div class="progress-bar"><div class="progress-fill" style="width:50%"></div></div>
+  <div class="level-indicator" id="li1"></div>
+  <div class="eyebrow">Scenario 02 / 04 — Regulatory Compliance</div>
+  <div class="sc-title">The India Async Trap</div>
+  <div class="sc-sub">Inspired by: RBI e-Mandate regulations and Adyen's 48-hour pre-notification requirement</div>
+
+  <div class="card">
+    <div class="card-label">Briefing</div>
+    <p>The Reserve Bank of India just announced: no more silent subscription renewals. You must send a notification 48 hours before each transaction. Your biggest client — a streaming giant — panics: <em>"Our conversion will drop 30%! Can you route this through our Dubai office as a cross-border transaction to avoid the rule?"</em></p>
+  </div>
+
+  <div class="intel-unlock-section" id="s1-unlock">
+    <div class="unlock-prompt">Level 03 — Describe what you expect to find in each intelligence source</div>
+    <div class="unlock-grid">
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-legal">Compliance</span></div><textarea id="s1-u-eng" placeholder="What does Compliance say about routing Indian transactions via Dubai?" oninput="checkUnlock(1)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-formula">The Formula</span></div><textarea id="s1-u-formula" placeholder="What is Adyen's Formula stance on local financial regulation?" oninput="checkUnlock(1)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-data">Data Dashboard</span></div><textarea id="s1-u-backlog" placeholder="What data would you look at to understand the impact on transactions?" oninput="checkUnlock(1)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-eng">Engineering</span></div><textarea id="s1-u-risk" placeholder="What technical solution could comply with the regulation while minimising conversion loss?" oninput="checkUnlock(1)"></textarea></div>
+    </div>
+    <button class="unlock-btn" id="s1-unlock-btn" onclick="unlockIntel(1)">Unlock Intel Cards →</button>
+  </div>
+
+  <div class="intel-grid" id="s1-intel">
+    <div class="intel-item" id="s1-i0"><div class="intel-source"><span class="tag tag-legal">Compliance</span></div><div class="intel-text">"Cross-border routing without a local mandate may be classified as regulatory circumvention. We risk our Indian banking license."</div></div>
+    <div class="intel-item" id="s1-i1"><div class="intel-source"><span class="tag tag-formula">The Formula</span></div><div class="intel-text">"We follow local financial regulations in every market we operate in. Non-negotiable."</div></div>
+    <div class="intel-item" id="s1-i2"><div class="intel-source"><span class="tag tag-data">Data Dashboard</span></div><div class="intel-text">"40% of transactions above ₹15,000 are premium subscriptions — all require AFA and the 48h window."</div></div>
+    <div class="intel-item" id="s1-i3"><div class="intel-source"><span class="tag tag-eng">Engineering</span></div><div class="intel-text">"We can build a Waiting Room that queues renewals until the 48h window clears and retries automatically."</div></div>
+  </div>
+
+  <div class="intel-eval" id="s1-intel-eval"><div class="intel-eval-grid" id="s1-eval-grid"></div></div>
+
+  <div class="open-answer-section" id="s1-open">
+    <div class="open-label">What is your decision and rationale?</div>
+    <textarea class="open-input" id="s1-open-input" placeholder="Describe what you would do as PM — do you comply, find a workaround, or build a product solution?" oninput="onOpenInput(1)"></textarea>
+    <button class="open-submit" id="s1-open-submit" onclick="evalOpen(1)">Submit Answer</button>
+  </div>
+
+  <div class="choices-section" id="s1-choices">
+    <div class="choices-label">What do you decide?</div>
+    <button class="choice-btn" id="s1-c0" onclick="choose(1,0,'wrong','A')"><div class="choice-key">A</div><div><div class="choice-title">Route via Dubai as cross-border</div><div class="choice-desc">The client keeps their conversion rate. Appears as cross-border, bypassing RBI rule.</div></div></button>
+    <button class="choice-btn" id="s1-c1" onclick="choose(1,1,'right','B')"><div class="choice-key">B</div><div><div class="choice-title">Build the Waiting Room</div><div class="choice-desc">Engineer a compliant queue: send the pre-notification at T-48h, retry on failure, maximise conversion within the regulation.</div></div></button>
+    <button class="choice-btn" id="s1-c2" onclick="choose(1,2,'partial','C')"><div class="choice-key">C</div><div><div class="choice-title">Suspend India processing temporarily</div><div class="choice-desc">Halt India until a fully compliant solution is ready. Zero risk, zero India revenue.</div></div></button>
+  </div>
+
+  <div class="feedback right" id="s1-fb-right"><div class="fb-head">Correct — 100% Formula alignment</div><p>The Waiting Room is exactly the solution Adyen built for the RBI crisis. You comply with the regulation without abandoning your client. Work <em>with</em> the regulation, not around it.</p><div class="formula-tag">Compliance · Product solution · Client preserved</div></div>
+  <div class="feedback wrong" id="s1-fb-wrong"><div class="fb-head">License risk: critical</div><p>If RBI classifies the Dubai routing as circumvention, Adyen loses its Indian license. India is a strategic market. You've traded a client's churn risk for a potential €1B+ market exclusion.</p></div>
+  <div class="feedback partial" id="s1-fb-partial"><div class="fb-head">Too conservative</div><p>Safe, but not leadership. The Waiting Room achieves the same compliance outcome while keeping the client running. Adyen's value is making compliance invisible to merchants.</p></div>
+  <div class="feedback open-eval" id="s1-fb-open"><div class="fb-head">Answer evaluated</div><p id="s1-open-eval-text"></p><div class="ideal-answer"><div class="ideal-label">Ideal answer</div><div class="ideal-text">Build the Waiting Room: a compliant queue that sends the RBI-required pre-notification at T-48h, retries on bank delay, and maximises subscription conversion within the regulation. No circumvention, no suspension — a product that turns the regulation into a feature.</div></div></div>
+
+  <button class="next-btn" id="s1-next" onclick="navGo(2)">Next Scenario →</button>
+</div>
+
+<!-- S2 -->
+<div class="scenario" id="s2">
+  <div class="progress-bar"><div class="progress-fill" style="width:75%"></div></div>
+  <div class="level-indicator" id="li2"></div>
+  <div class="eyebrow">Scenario 03 / 04 — Security &amp; Operations</div>
+  <div class="sc-title">The TLS Sunset</div>
+  <div class="sc-sub">Inspired by: Adyen's deprecation of TLS 1.0/1.1 across Unified Commerce</div>
+
+  <div class="card">
+    <div class="card-label">Briefing</div>
+    <p>It's September. Peak sales season is approaching. Engineering announces: <em>"We're disabling TLS 1.1 next Tuesday. PCI-DSS requires it."</em> A key client — a 500-store fashion chain — calls: <em>"Our terminal firmware is old. If you flip the switch Tuesday, we can't sell a single item. We need a 3-month exception."</em></p>
+  </div>
+
+  <div class="intel-unlock-section" id="s2-unlock">
+    <div class="unlock-prompt">Level 03 — Describe what you expect to find in each intelligence source</div>
+    <div class="unlock-grid">
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-risk">Security / Risk</span></div><textarea id="s2-u-eng" placeholder="What are the security risks of maintaining TLS 1.1 even temporarily?" oninput="checkUnlock(2)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-formula">The Formula</span></div><textarea id="s2-u-formula" placeholder="What does The Formula say about PCI-DSS compliance?" oninput="checkUnlock(2)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-eng">Logistics</span></div><textarea id="s2-u-backlog" placeholder="What hardware or logistics resources might be available to resolve the terminal issue?" oninput="checkUnlock(2)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-data">Client data</span></div><textarea id="s2-u-risk" placeholder="How significant is this client to Adyen's overall volume? What does the revenue math look like?" oninput="checkUnlock(2)"></textarea></div>
+    </div>
+    <button class="unlock-btn" id="s2-unlock-btn" onclick="unlockIntel(2)">Unlock Intel Cards →</button>
+  </div>
+
+  <div class="intel-grid" id="s2-intel">
+    <div class="intel-item" id="s2-i0"><div class="intel-source"><span class="tag tag-risk">Security</span></div><div class="intel-text">"Keeping TLS 1.1 active is an open door for Man-in-the-Middle attacks. One incident and Adyen loses its 'most secure platform' reputation."</div></div>
+    <div class="intel-item" id="s2-i1"><div class="intel-source"><span class="tag tag-formula">The Formula</span></div><div class="intel-text">"PCI-DSS compliance is non-negotiable. Our license depends on it."</div></div>
+    <div class="intel-item" id="s2-i2"><div class="intel-source"><span class="tag tag-eng">Logistics</span></div><div class="intel-text">"2,000 new terminals in warehouse stock. Courier logistics cannot deliver all 500 stores in one week — but emergency dispatch could cover them in 10 days."</div></div>
+    <div class="intel-item" id="s2-i3"><div class="intel-source"><span class="tag tag-data">Client data</span></div><div class="intel-text">"The fashion chain is 0.4% of volume. Their 3-month revenue loss: ~€2M. Adyen's Indian license value: ~€1B+. One precedent exception invites dozens more."</div></div>
+  </div>
+
+  <div class="intel-eval" id="s2-intel-eval"><div class="intel-eval-grid" id="s2-eval-grid"></div></div>
+
+  <div class="open-answer-section" id="s2-open">
+    <div class="open-label">What is your decision and rationale?</div>
+    <textarea class="open-input" id="s2-open-input" placeholder="How do you balance PCI-DSS compliance with the client's business continuity?" oninput="onOpenInput(2)"></textarea>
+    <button class="open-submit" id="s2-open-submit" onclick="evalOpen(2)">Submit Answer</button>
+  </div>
+
+  <div class="choices-section" id="s2-choices">
+    <div class="choices-label">What's your call?</div>
+    <button class="choice-btn" id="s2-c0" onclick="choose(2,0,'wrong','A')"><div class="choice-key">A</div><div><div class="choice-title">Grant the 3-month exception</div><div class="choice-desc">Maintain TLS 1.1 for this one client. They keep selling. Adyen keeps the relationship.</div></div></button>
+    <button class="choice-btn" id="s2-c1" onclick="choose(2,1,'right','B')"><div class="choice-key">B</div><div><div class="choice-title">War Room: secure tunnel + emergency logistics</div><div class="choice-desc">Set up a TLS 1.2 proxy for this client only, while coordinating emergency terminal delivery in 10 days. Sunset the tunnel when hardware is live.</div></div></button>
+    <button class="choice-btn" id="s2-c2" onclick="choose(2,2,'partial','C')"><div class="choice-key">C</div><div><div class="choice-title">Force offline until hardware arrives</div><div class="choice-desc">Client goes offline for the transition period. No security exception. Platform stays clean.</div></div></button>
+  </div>
+
+  <div class="feedback right" id="s2-fb-right"><div class="fb-head">Correct — pragmatic security leadership</div><p>The Legacy Tunnel runs TLS 1.2 at the proxy layer — the Adyen platform never touches TLS 1.1. You simultaneously mobilise emergency logistics. This is War Room thinking: maintain compliance, minimise client damage, hard deadline to close the tunnel.</p><div class="formula-tag">PCI-DSS compliant · Time-boxed · Client preserved</div></div>
+  <div class="feedback wrong" id="s2-fb-wrong"><div class="fb-head">PCI-DSS violation</div><p>A formal exception to a PCI-DSS requirement risks Adyen's Level 1 certification. One exception becomes a precedent. "Just this one client" is how compliance regimes collapse.</p></div>
+  <div class="feedback partial" id="s2-fb-partial"><div class="fb-head">Clean, but no client empathy</div><p>Platform stays fully compliant. But you've abandoned a long-term client during peak season without offering a solution. The Legacy Tunnel achieves the same compliance outcome while protecting the relationship.</p></div>
+  <div class="feedback open-eval" id="s2-fb-open"><div class="fb-head">Answer evaluated</div><p id="s2-open-eval-text"></p><div class="ideal-answer"><div class="ideal-label">Ideal answer</div><div class="ideal-text">War Room approach: deploy a TLS 1.2 termination proxy for the client (platform stays PCI-compliant), coordinate emergency terminal delivery in 10 days, then shut down the proxy. Maintain compliance, protect the client, set a hard deadline.</div></div></div>
+
+  <button class="next-btn" id="s2-next" onclick="navGo(3)">Next Scenario →</button>
+</div>
+
+<!-- S3 -->
+<div class="scenario" id="s3">
+  <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+  <div class="level-indicator" id="li3"></div>
+  <div class="eyebrow">Scenario 04 / 04 — Infrastructure · Bonus</div>
+  <div class="sc-title">The PostgreSQL TOAST Crisis</div>
+  <div class="sc-sub">Inspired by: Adyen's PostgreSQL TOAST corruption incident (2025)</div>
+
+  <div class="card">
+    <div class="card-label">Briefing</div>
+    <p>You are the PM for Infrastructure Performance. Engineers arrive: <em>"We have silent data corruption in PostgreSQL's TOAST mechanism. We need to halt all new deployments — including the Buy Now Pay Later launch Sales has been waiting 6 months for — to scan billions of rows."</em></p>
+  </div>
+
+  <div class="intel-unlock-section" id="s3-unlock">
+    <div class="unlock-prompt">Level 03 — Describe what you expect to find in each intelligence source</div>
+    <div class="unlock-grid">
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-eng">Engineering</span></div><textarea id="s3-u-eng" placeholder="What does Engineering say about the scan process — how long, what's blocked?" oninput="checkUnlock(3)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-formula">The Formula</span></div><textarea id="s3-u-formula" placeholder="What does Adyen's Formula say about data integrity vs feature velocity?" oninput="checkUnlock(3)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-data">Sales / Revenue</span></div><textarea id="s3-u-backlog" placeholder="What is the revenue pressure from the delayed BNPL launch?" oninput="checkUnlock(3)"></textarea></div>
+      <div class="unlock-item"><div class="unlock-item-label"><span class="tag tag-risk">Risk</span></div><textarea id="s3-u-risk" placeholder="What happens if you launch BNPL on top of a known data corruption?" oninput="checkUnlock(3)"></textarea></div>
+    </div>
+    <button class="unlock-btn" id="s3-unlock-btn" onclick="unlockIntel(3)">Unlock Intel Cards →</button>
+  </div>
+
+  <div class="intel-grid" id="s3-intel">
+    <div class="intel-item" id="s3-i0"><div class="intel-source"><span class="tag tag-eng">Engineering</span></div><div class="intel-text">"TOAST corruption is silent — looks valid until read. Full production DB scan: ~72 hours. Cannot safely deploy during scan."</div></div>
+    <div class="intel-item" id="s3-i1"><div class="intel-source"><span class="tag tag-formula">The Formula</span></div><div class="intel-text">"Data integrity is the foundation of trust. We never ship on top of a known data risk."</div></div>
+    <div class="intel-item" id="s3-i2"><div class="intel-source"><span class="tag tag-data">Sales</span></div><div class="intel-text">"BNPL has 3 signed enterprise clients waiting. Every week of delay costs ~€400K in committed revenue."</div></div>
+    <div class="intel-item" id="s3-i3"><div class="intel-source"><span class="tag tag-risk">Risk</span></div><div class="intel-text">"If corrupted data reaches a live BNPL transaction, we may process incorrect amounts. Regulatory exposure: significant."</div></div>
+  </div>
+
+  <div class="intel-eval" id="s3-intel-eval"><div class="intel-eval-grid" id="s3-eval-grid"></div></div>
+
+  <div class="open-answer-section" id="s3-open">
+    <div class="open-label">What is your decision and rationale?</div>
+    <textarea class="open-input" id="s3-open-input" placeholder="How do you prioritise data integrity vs. the BNPL launch? What do you communicate to Sales and stakeholders?" oninput="onOpenInput(3)"></textarea>
+    <button class="open-submit" id="s3-open-submit" onclick="evalOpen(3)">Submit Answer</button>
+  </div>
+
+  <div class="choices-section" id="s3-choices">
+    <div class="choices-label">Sales is furious. What do you prioritize?</div>
+    <button class="choice-btn" id="s3-c0" onclick="choose(3,0,'wrong','A')"><div class="choice-key">A</div><div><div class="choice-title">Launch BNPL now, scan in parallel</div><div class="choice-desc">Ship BNPL while running the DB scan in background. Keep the revenue. Fix if something breaks.</div></div></button>
+    <button class="choice-btn" id="s3-c1" onclick="choose(3,1,'right','B')"><div class="choice-key">B</div><div><div class="choice-title">Full freeze — scan first, then launch</div><div class="choice-desc">Halt all deployments. Complete the TOAST scan. Communicate proactively with a clear 72-hour timeline.</div></div></button>
+    <button class="choice-btn" id="s3-c2" onclick="choose(3,2,'partial','C')"><div class="choice-key">C</div><div><div class="choice-title">Launch BNPL on isolated new DB</div><div class="choice-desc">Stand up a clean PostgreSQL instance for BNPL only. Isolate the risk. Scan main DB separately.</div></div></button>
+  </div>
+
+  <div class="feedback right" id="s3-fb-right"><div class="fb-head">Correct — Data integrity first</div><p>A 72-hour delay is a story you can tell. A corrupted BNPL transaction triggers regulatory investigation, client incidents, and an engineering crisis simultaneously. Proactive communication transforms this from crisis into professional execution.</p><div class="formula-tag">Data integrity · Proactive communication · Launch confidence</div></div>
+  <div class="feedback wrong" id="s3-fb-wrong"><div class="fb-head">You built on sand</div><p>You launched a financial product on top of a known data integrity issue. TOAST corruption is a foundation problem — you cannot build on it and fix later in payments infrastructure.</p></div>
+  <div class="feedback partial" id="s3-fb-partial"><div class="fb-head">Creative but adds complexity risk</div><p>The isolation approach has merit, but standing up a separate production DB introduces new risks: different config, no battle-testing, migration paths. In a crisis, simple wins over clever. Full freeze is 72 hours — take it.</p></div>
+  <div class="feedback open-eval" id="s3-fb-open"><div class="fb-head">Answer evaluated</div><p id="s3-open-eval-text"></p><div class="ideal-answer"><div class="ideal-label">Ideal answer</div><div class="ideal-text">Full freeze: halt all deployments, complete the 72-hour TOAST scan, communicate a precise resumption timeline to Sales and BNPL clients. Frame it as: "no news is the best news — we launch on clean data." Data integrity is the foundation; a 72h delay costs €80K, a corrupted launch costs the license.</div></div></div>
+
+  <button class="next-btn" id="s3-next" onclick="showResults()">See Results →</button>
+</div>
+
+<!-- RESULTS -->
+<div id="results">
+  <div class="progress-bar"><div class="progress-fill" style="width:100%"></div></div>
+  <div class="eyebrow">Simulation Complete</div>
+  <div class="sc-title">Your Formula Alignment</div>
+  <div class="sc-sub">Results for all 4 scenarios at your selected difficulty level.</div>
+  <div class="results-grid" id="results-grid"></div>
+  <div class="card"><div class="card-label">Overall Assessment</div><p id="overall-text" style="font-size:14px;line-height:1.75;"></p></div>
+  <br>
+  <button class="restart-btn" onclick="restart()">Start Again</button>
+</div>
+
+</main>
+
+<script>
+let LEVEL = 0;
+const scores = [null,null,null,null];
+const SC_NAMES = ['Marketplace Dilemma','India Async Trap','TLS Sunset','PostgreSQL Crisis'];
+const SCORE_MAP = {right:100, partial:50, wrong:0};
+
+// ── DIFFICULTY SELECTION ──
+function pickLevel(n) {
+  LEVEL = n;
+  document.querySelectorAll('.diff-card').forEach(c => c.classList.remove('picked'));
+  document.querySelectorAll('.diff-card')[n-1].classList.add('picked');
+  document.getElementById('start-btn').classList.add('show');
+}
+
+function startSim() {
+  document.getElementById('difficulty-screen').style.display = 'none';
+  const main = document.getElementById('main-sim');
+  main.classList.add('show');
+  setupLevel();
+  navGo(0);
+  document.querySelectorAll('.nav-tab').forEach(t => t.style.display = 'inline-flex');
+}
+
+function setupLevel() {
+  const liText = ['','Level 01 — Multiple Choice','Level 02 — Open Answer','Level 03 — Intelligence Analysis'];
+  const liClass = ['','li-1','li-2','li-3'];
+  for (let i=0;i<4;i++) {
+    const li = document.getElementById('li'+i);
+    li.textContent = liText[LEVEL];
+    li.className = 'level-indicator ' + liClass[LEVEL];
+
+    const intel = document.getElementById('s'+i+'-intel');
+    const unlock = document.getElementById('s'+i+'-unlock');
+    const openSec = document.getElementById('s'+i+'-open');
+    const choices = document.getElementById('s'+i+'-choices');
+
+    // Reset all
+    intel.querySelectorAll('.intel-item').forEach(item => {
+      item.classList.remove('locked','unlocked');
+    });
+
+    if (LEVEL === 1) {
+      if (unlock) unlock.classList.remove('show');
+      if (openSec) openSec.classList.remove('show');
+      if (choices) choices.classList.add('show');
+    } else if (LEVEL === 2) {
+      if (unlock) unlock.classList.remove('show');
+      if (openSec) openSec.classList.add('show');
+      if (choices) choices.classList.remove('show');
+    } else if (LEVEL === 3) {
+      if (unlock) unlock.classList.add('show');
+      if (openSec) openSec.classList.add('show'); // shown after unlock
+      if (choices) choices.classList.remove('show');
+      // Lock all intel items
+      intel.querySelectorAll('.intel-item').forEach(item => item.classList.add('locked'));
+      // Hide open section until unlocked
+      if (openSec) openSec.classList.remove('show');
+    }
+  }
+}
+
+// ── LEVEL 3: check all 4 fields filled ──
+function checkUnlock(si) {
+  const fields = ['s'+si+'-u-eng','s'+si+'-u-formula','s'+si+'-u-backlog','s'+si+'-u-risk'];
+  const allFilled = fields.every(id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim().length > 15;
+  });
+  const btn = document.getElementById('s'+si+'-unlock-btn');
+  if (allFilled) btn.classList.add('ready');
+  else btn.classList.remove('ready');
+}
+
+function unlockIntel(si) {
+  // Unlock visual
+  const intel = document.getElementById('s'+si+'-intel');
+  intel.querySelectorAll('.intel-item').forEach((item, idx) => {
+    setTimeout(() => item.classList.replace('locked','unlocked'), idx * 120);
+  });
+
+  // Show eval of their intel guesses
+  evaluateIntelGuesses(si);
+
+  // Hide unlock section
+  document.getElementById('s'+si+'-unlock').classList.remove('show');
+
+  // Show open answer for level 3
+  setTimeout(() => {
+    document.getElementById('s'+si+'-open').classList.add('show');
+  }, 600);
+}
+
+const INTEL_KEYWORDS = {
+  0: {
+    eng: ['block','6 month','global','freeze','update','delay'],
+    formula: ['no custom','no modification','one platform','single platform','all merchant'],
+    backlog: ['9 month','generic','multi-party','payouts','module','backlog'],
+    risk: ['fork','dependency','block','API','future','lock','hostage']
+  },
+  1: {
+    eng: ['license','india','circumvention','RBI','illegal','risk'],
+    formula: ['follow','local','regulation','law','non-negotiable'],
+    backlog: ['40%','subscription','premium','15k','INR','conversion','impact'],
+    risk: ['waiting room','queue','notify','48h','retry','auto']
+  },
+  2: {
+    eng: ['MitM','man-in-the-middle','attack','vulnerability','TLS 1.1','security'],
+    formula: ['PCI','compliance','license','non-negotiable','mandatory'],
+    backlog: ['terminal','warehouse','courier','delivery','hardware','stock'],
+    risk: ['0.4%','volume','revenue','precedent','exception','small']
+  },
+  3: {
+    eng: ['72 hour','scan','halt','deploy','silent','corrupt'],
+    formula: ['integrity','trust','never ship','data','foundation'],
+    backlog: ['400k','revenue','BNPL','delay','sales','clients'],
+    risk: ['regulatory','launch','incorrect','expose','financial','liability']
+  }
+};
+
+function evaluateIntelGuesses(si) {
+  const fields = ['eng','formula','backlog','risk'];
+  const labels = ['Engineering / Compliance','The Formula','Backlog / Data','Risk'];
+  const keys = INTEL_KEYWORDS[si];
+  const evalGrid = document.getElementById('s'+si+'-eval-grid');
+  const evalSection = document.getElementById('s'+si+'-intel-eval');
+
+  let html = '';
+  fields.forEach((f, idx) => {
+    const val = (document.getElementById('s'+si+'-u-'+f)||{value:''}).value.toLowerCase();
+    const kws = keys[f] || [];
+    const matches = kws.filter(k => val.includes(k));
+    const quality = matches.length >= 2 ? 'good' : matches.length === 1 ? 'partial' : 'miss';
+    const icon = quality === 'good' ? '✓' : quality === 'partial' ? '~' : '✗';
+    const msg = quality === 'good'
+      ? 'Good — you anticipated the key risk.'
+      : quality === 'partial'
+      ? 'Partial — you were on the right track but missed specifics.'
+      : 'Missed — the actual intel reveals something you didn\'t consider.';
+    html += `<div class="intel-eval-item"><div class="ie-label">${labels[idx]}</div><div class="ie-check ${quality === 'good' ? 'good' : quality === 'partial' ? '' : 'miss'}">${icon} ${msg}</div></div>`;
+  });
+  evalGrid.innerHTML = html;
+  evalSection.classList.add('show');
+}
+
+// ── LEVEL 2: open answer keywords ──
+const OPEN_KEYWORDS = {
+  0: { good: ['productize','platform','all merchant','standard','api','4 month','accelerate','backlog'], bad: ['fork','custom','exception','just for them'] },
+  1: { good: ['waiting room','queue','48h','comply','regulation','notify','retry'], bad: ['dubai','cross-border','bypass','avoid','circumvent'] },
+  2: { good: ['proxy','tunnel','tls 1.2','emergency','10 day','logistics','hardware','deliver'], bad: ['exception','3 month','keep tls 1.1','maintain tls'] },
+  3: { good: ['freeze','halt','scan','72 hour','integrity','communicate','timeline'], bad: ['parallel','launch anyway','ship now','side by side'] }
+};
+
+function onOpenInput(si) {
+  const inp = document.getElementById('s'+si+'-open-input');
+  const sub = document.getElementById('s'+si+'-open-submit');
+  const filled = inp.value.trim().length > 30;
+  inp.classList.toggle('filled', filled);
+  sub.classList.toggle('show', filled);
+}
+
+function evalOpen(si) {
+  const val = document.getElementById('s'+si+'-open-input').value.toLowerCase();
+  const kw = OPEN_KEYWORDS[si];
+  const goodHits = kw.good.filter(k => val.includes(k)).length;
+  const badHits = kw.bad.filter(k => val.includes(k)).length;
+
+  let score, msg;
+  if (badHits > 0 && goodHits < 2) {
+    score = 0;
+    msg = 'Your answer contains reasoning that conflicts with The Formula — you seem to be looking for a workaround rather than a structural solution. See the ideal answer below.';
+  } else if (goodHits >= 3 && badHits === 0) {
+    score = 100;
+    msg = 'Strong answer. You identified the core structural solution, avoided the compliance trap, and showed product thinking aligned with The Formula.';
+  } else if (goodHits >= 1) {
+    score = 50;
+    msg = 'Partially correct. You identified some of the right elements, but the full solution requires a more structured product response. See the ideal answer below.';
+  } else {
+    score = 25;
+    msg = 'Your answer is incomplete or too vague to evaluate clearly. The ideal answer below shows the full reasoning expected of an Adyen PM.';
+  }
+
+  scores[si] = score;
+  document.getElementById('s'+si+'-open-eval-text').textContent = msg;
+  document.getElementById('s'+si+'-fb-open').classList.add('show');
+  document.getElementById('s'+si+'-open-submit').disabled = true;
+  document.getElementById('s'+si+'-open-input').disabled = true;
+  document.getElementById('s'+si+'-next').classList.add('show');
+  updateBadge();
+}
+
+// ── LEVEL 1: multiple choice ──
+function choose(si, ci, outcome, letter) {
+  if (scores[si] !== null) return;
+  ['0','1','2'].forEach(j => {
+    const b = document.getElementById('s'+si+'-c'+j);
+    if (b) b.disabled = true;
+  });
+  const btn = document.getElementById('s'+si+'-c'+ci);
+  btn.classList.add(outcome === 'right' ? 'sel-right' : outcome === 'partial' ? 'sel-partial' : 'sel-wrong');
+  const fbId = outcome === 'right' ? 's'+si+'-fb-right' : outcome === 'partial' ? 's'+si+'-fb-partial' : 's'+si+'-fb-wrong';
+  document.getElementById(fbId).classList.add('show');
+  scores[si] = SCORE_MAP[outcome];
+  document.getElementById('s'+si+'-next').classList.add('show');
+  updateBadge();
+}
+
+// ── BADGE ──
+function updateBadge() {
+  const answered = scores.filter(s => s !== null);
+  if (!answered.length) return;
+  const avg = Math.round(answered.reduce((a,b)=>a+b,0)/answered.length);
+  document.getElementById('score-badge').textContent = avg+'%';
+}
+
+// ── NAVIGATION ──
+function navGo(idx) {
+  for (let i=0;i<4;i++) {
+    document.getElementById('s'+i).classList.toggle('active', i===idx);
+    document.getElementById('nt'+i).classList.toggle('active', i===idx);
+  }
+  document.getElementById('results').style.display = 'none';
+  window.scrollTo(0,0);
+}
+
+// ── RESULTS ──
+function showResults() {
+  for (let i=0;i<4;i++) document.getElementById('s'+i).classList.remove('active');
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  const res = document.getElementById('results');
+  res.style.display = 'block';
+
+  const grid = document.getElementById('results-grid');
+  let total = 0;
+  grid.innerHTML = '';
+  scores.forEach((s,i) => {
+    const score = s ?? 0; total += score;
+    const cls = score >= 80 ? 's100' : score >= 50 ? 's50' : 's0';
+    const lbl = score >= 80 ? 'Formula aligned' : score >= 50 ? 'Compromise' : 'Formula violation';
+    grid.innerHTML += `<div class="result-item"><div class="r-sc">Scenario ${i+1} — ${SC_NAMES[i]}</div><div class="r-score ${cls}">${score}%</div><div class="r-label">${lbl}</div></div>`;
+  });
+
+  const avg = Math.round(total/4);
+  const levelName = LEVEL===1?'Multiple Choice':LEVEL===2?'Open Answer':'Intelligence Analysis';
+  let overall;
+  if (avg >= 90) overall = `Outstanding performance at ${levelName} level. You think like Adyen thinks — platform integrity over short-term appeasement, compliant product solutions over workarounds. The Formula is fully internalized.`;
+  else if (avg >= 70) overall = `Strong product instincts at ${levelName} level. You applied The Formula in most cases. A few decisions leaned too conservative or too permissive — the best Adyen PMs always find the structured third path.`;
+  else if (avg >= 45) overall = `Moderate alignment at ${levelName} level. You identified some correct directions, but the full solutions require more structured product thinking. Review the ideal answers and focus on "productize, don't refuse or workaround."`;
+  else overall = `The Formula needs further internalization at ${levelName} level. Multiple decisions prioritised short-term fixes or refusals over structured product solutions. Adyen PMs build solutions that make compliance invisible — that requires product work, not just yes/no decisions.`;
+
+  document.getElementById('overall-text').textContent = overall;
+  document.getElementById('score-badge').textContent = avg+'%';
+  window.scrollTo(0,0);
+}
+
+// ── RESTART ──
+function restart() {
+  scores.fill(null);
+  document.getElementById('score-badge').textContent = '—';
+  LEVEL = 0;
+
+  for (let i=0;i<4;i++) {
+    ['0','1','2'].forEach(j=>{
+      const b = document.getElementById('s'+i+'-c'+j);
+      if(b){b.disabled=false;b.classList.remove('sel-right','sel-partial','sel-wrong');}
+    });
+    document.querySelectorAll('#s'+i+' .feedback').forEach(f=>f.classList.remove('show'));
+    const nb = document.getElementById('s'+i+'-next');
+    if(nb) nb.classList.remove('show');
+    const oi = document.getElementById('s'+i+'-open-input');
+    if(oi){oi.value='';oi.disabled=false;oi.classList.remove('filled');}
+    const os = document.getElementById('s'+i+'-open-submit');
+    if(os){os.disabled=false;os.classList.remove('show');}
+    ['eng','formula','backlog','risk'].forEach(f=>{
+      const ta=document.getElementById('s'+i+'-u-'+f);
+      if(ta) ta.value='';
+    });
+    const ub=document.getElementById('s'+i+'-unlock-btn');
+    if(ub) ub.classList.remove('ready');
+    const ie=document.getElementById('s'+i+'-intel-eval');
+    if(ie) ie.classList.remove('show');
+    const ieg=document.getElementById('s'+i+'-eval-grid');
+    if(ieg) ieg.innerHTML='';
+    document.getElementById('s'+i).classList.remove('active');
+  }
+
+  document.getElementById('results').style.display='none';
+  document.getElementById('main-sim').classList.remove('show');
+  document.getElementById('difficulty-screen').style.display='flex';
+  document.querySelectorAll('.diff-card').forEach(c=>c.classList.remove('picked'));
+  document.getElementById('start-btn').classList.remove('show');
+}
+</script>
+</body>
+</html>
