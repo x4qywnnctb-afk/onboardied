@@ -150,12 +150,20 @@ def create_chart_01_radar():
 
 
 def create_chart_02_sentiment():
-    """Chart 2: Sentiment Butterfly - Positive vs Negative Mentions"""
+    """Chart 2: Sentiment Butterfly - sorted best (top) to worst (bottom)"""
     df = pd.read_sql_query("SELECT * FROM sentiment_themes", conn)
 
     if df.empty:
         st.warning("No sentiment data available.")
         return None
+
+    # Compute sentiment ratio: higher = more positive, lower = more negative
+    df['total'] = df['positive_mentions'] + df['negative_mentions']
+    df['sentiment_ratio'] = df['positive_mentions'] / df['total'].replace(0, 1)
+
+    # Sort so BEST (most positive) at TOP, WORST (most negative) at BOTTOM
+    # matplotlib plots bottom-to-top, so we want worst first (index 0 = bottom)
+    df = df.sort_values('sentiment_ratio', ascending=True).reset_index(drop=True)
 
     themes = df['theme'].tolist()
     positive = df['positive_mentions'].tolist()
@@ -252,63 +260,112 @@ def create_chart_03_heatmap():
 
 
 def create_chart_04_keywords():
-    """Chart 4: Top Keywords - Onboarding & Learning Focus (HARDCODED DATA)"""
+    """Chart 4: Tag Cloud - Onboarding Issues visualized as a word/tag cloud"""
 
     # HARDCODED DATA: Data extracted from Adyen_Opinie_Tabela.docx
     onboarding_data = {
-        "Thrown into the deep end (Sink or Swim)": 48,
+        "Thrown into the deep end": 48,
         "Tribal knowledge hoarding": 45,
         "Lack of structured training": 42,
         "Zero guidance for new joiners": 40,
         "Outdated documentation": 38,
         "No feedback loop": 35,
         "Office politics over skill": 32,
-        "Figure it out yourself (Self-directed)": 30,
+        "Figure it out yourself": 30,
         "Overwhelmed by context switching": 28,
         "Lack of technical context": 25,
         "Fake politeness culture": 22,
         "Trial by fire onboarding": 20,
         "No dedicated mentorship": 18,
         "Chaotic onboarding process": 15,
-        "Generic / Irrelevant training": 12
+        "Generic / Irrelevant training": 12,
     }
 
-    # Extract phrases and counts
     phrases = list(onboarding_data.keys())
     counts = list(onboarding_data.values())
+    min_count = min(counts)
+    max_count = max(counts)
 
-    # Create horizontal bar chart
-    fig, ax = plt.subplots(figsize=(12, 8), dpi=DPI)
+    # ── colour scale: most frequent = deep Adyen Green, least = light mint ──
+    def count_to_color(c):
+        t = (c - min_count) / (max_count - min_count)          # 0..1
+        # interpolate between soft mint (#a8e6c1) and Adyen green (#0abf53)
+        r = int(0xa8 + t * (0x0a - 0xa8))
+        g = int(0xe6 + t * (0xbf - 0xe6))
+        b = int(0xc1 + t * (0x53 - 0xc1))
+        return f'#{r:02x}{g:02x}{b:02x}'
 
-    bars = ax.barh(range(len(phrases)), counts, color=ADYEN_GREEN, height=0.7)
+    # ── font size scale: 11 pt (least) to 26 pt (most frequent) ──
+    def count_to_fontsize(c):
+        t = (c - min_count) / (max_count - min_count)
+        return 11 + t * 15
 
-    # Add value labels at end of bars
-    for i, count in enumerate(counts):
-        ax.text(count + max(counts)*0.01, i, str(count),
-               va='center', ha='left', fontsize=10, color=ADYEN_MIDNIGHT, weight='500')
-
-    ax.set_yticks(range(len(phrases)))
-    ax.set_yticklabels(phrases, fontsize=10, color=ADYEN_MIDNIGHT)
-    ax.set_xlabel('Mention Count', fontsize=11, weight='500', color=ADYEN_MIDNIGHT)
-    ax.set_title('Chart 4: Top Onboarding Issues - Employee Feedback Themes',
-                 fontsize=14, weight='600', pad=15, color=ADYEN_MIDNIGHT)
-
-    # Ultra-clean styling: pure white background, no gridlines, no spines
+    # ── layout: spiral-like placement using a simple grid with jitter ──
+    np.random.seed(42)
+    fig, ax = plt.subplots(figsize=(14, 8), dpi=DPI)
     ax.set_facecolor('#ffffff')
-    ax.grid(False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.tick_params(left=False, bottom=False, colors=ADYEN_MIDNIGHT)
-    ax.invert_yaxis()  # Highest count at top
-
-    plt.figtext(0.5, 0.02,
-                'Data: Extracted from Adyen_Opinie_Tabela.docx (Employee feedback 2024-2026) | Dashboard by Serafima, Feb 2026',
-                ha='center', fontsize=8, style='normal', color=ADYEN_SECONDARY)
-
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis('off')
     fig.patch.set_facecolor('#ffffff')
-    plt.tight_layout()
+
+    # Grid-based placement: 5 columns × 3 rows
+    cols, rows = 5, 3
+    positions = []
+    for row in range(rows):
+        for col in range(cols):
+            x = (col + 0.5) / cols
+            y = (rows - row - 0.5) / rows
+            positions.append((x, y))
+
+    # Sort phrases by count descending so biggest tags get centre positions
+    sorted_items = sorted(zip(counts, phrases), reverse=True)
+
+    # Reorder positions: spiral from centre outward
+    # Simple approach: interleave so top items go near center
+    centre_order = []
+    left, right = 0, len(positions) - 1
+    toggle = True
+    while left <= right:
+        if toggle:
+            centre_order.append(positions[left]); left += 1
+        else:
+            centre_order.append(positions[right]); right -= 1
+        toggle = not toggle
+
+    for i, (count, phrase) in enumerate(sorted_items):
+        if i >= len(centre_order):
+            break
+        x, y = centre_order[i]
+        # Add slight jitter for organic feel
+        x += np.random.uniform(-0.04, 0.04)
+        y += np.random.uniform(-0.05, 0.05)
+        x = np.clip(x, 0.05, 0.95)
+        y = np.clip(y, 0.05, 0.95)
+
+        color = count_to_color(count)
+        fontsize = count_to_fontsize(count)
+        weight = 'bold' if count >= 35 else ('semibold' if count >= 25 else 'normal')
+
+        ax.text(x, y, phrase,
+                fontsize=fontsize,
+                color=color,
+                ha='center', va='center',
+                fontweight=weight,
+                wrap=False,
+                transform=ax.transAxes)
+
+    ax.set_title('Chart 4: Top Onboarding Issues — Tag Cloud',
+                 fontsize=14, weight='600', pad=15, color=ADYEN_MIDNIGHT,
+                 transform=fig.transFigure, x=0.5, y=0.97, ha='center')
+
+    # Legend: size = frequency
+    legend_text = "Tag size & colour intensity = mention frequency  |  Darker green = mentioned more often"
+    plt.figtext(0.5, 0.02,
+                f'{legend_text}\nData: Employee feedback 2024-2026 | Dashboard by Serafima, Feb 2026',
+                ha='center', fontsize=8, color=ADYEN_SECONDARY, linespacing=1.6)
+
+    plt.tight_layout(rect=[0, 0.06, 1, 0.95])
 
     # Save chart
     os.makedirs('adyen_charts', exist_ok=True)
@@ -518,7 +575,7 @@ elif selected_chart == "Chart 2: Sentiment Butterfly":
             st.pyplot(fig)
             plt.close()
 
-    st.info("Green bars represent positive mentions, red bars represent negative mentions. Length indicates frequency.")
+    st.info("Green bars = positive mentions, red bars = negative. Sorted from best-rated (top) to worst-rated (bottom). Bar length = frequency.")
 
 elif selected_chart == "Chart 3: Platform Heatmap":
     st.markdown(f"""
@@ -544,7 +601,7 @@ elif selected_chart == "Chart 4: Top Onboarding Issues":
             Chart 4: Top Onboarding Issues
         </h2>
         <p style='color: {ADYEN_SECONDARY}; font-size: 1rem; margin-bottom: 1.5rem;'>
-            Most frequently mentioned onboarding and learning challenges extracted from employee feedback (2024-2026).
+            Tag cloud showing onboarding and learning challenges from employee feedback (2024-2026). Larger and darker tags = mentioned more frequently.
         </p>
     """, unsafe_allow_html=True)
 
